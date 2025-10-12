@@ -1,0 +1,7 @@
+look into the notebook folder, these have been used:
+1) AI_Explanations_&_Fairness_with_Census_Income_Data.ipynb
+we discuss fairness and bias in AI
+
+2) Spotify_Workshop.ipynb
+
+Explore how Spotify track features relate (or don’t relate) to popularity. Discover which artists consistently produce hits and understand why popularity isn’t just about the audio. Students can use this to get ideas about making basic recommender systems (without interaction)
