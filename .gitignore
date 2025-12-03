@@ -1,3 +1,5 @@
 /teacher_material_dont_publish/*
 !/teacher_material_dont_publish/.gitkeep
 .obsidian/
+/notebooks/temp/*
+.DS_Store
