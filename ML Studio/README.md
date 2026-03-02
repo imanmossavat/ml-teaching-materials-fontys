@@ -13,18 +13,11 @@ Instead of focusing only on metrics or finished pipelines, we explore how models
 
 - Visual and intuitive explanations  
 - Guided hands-on experimentation  
-- Simple datasets to expose core ideas  
-- Clear connections between math, geometry, and behavior  
-- No grades, no pressure — just understanding  
+- Simple datasets to expose core ideas    
 
-These sessions are designed for students who are curious, reflective, and motivated to deepen their technical reasoning.
+These sessions are designed for students who are curious, reflective, and motivated to deepen their technical reasoning by hands-on experimentation.
 
----
-
-## Why This Matters
-
-Many students can train a model.  
-Fewer can explain:
+ML Studio helps you build the mental models needed to answer this type of questions confidently:
 
 - Why did this model behave like that?
 - What assumption is this algorithm making?
@@ -32,7 +25,6 @@ Fewer can explain:
 - What changed when I tuned that hyperparameter?
 - How does data representation affect outcomes?
 
-ML Studio helps you build the mental models needed to answer these questions confidently.
 
 ---
 
