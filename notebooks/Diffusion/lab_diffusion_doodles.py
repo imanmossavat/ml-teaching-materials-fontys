@@ -116,10 +116,10 @@ EXPERIMENTS = [
 # TRAINING LOOP
 # =========================================================
 
-STEPS       = 300    # gradient steps per experiment
-LOG_EVERY   = 25     # print interval
+STEPS       = 1500   # gradient steps per experiment
+LOG_EVERY   = 100    # print interval
 BATCH_SIZE  = 32
-LR          = 1e-4
+LR          = 3e-4
 
 
 def run_experiment(name: str, cfg: ModelConfig) -> nn.Module:
@@ -151,7 +151,13 @@ def run_experiment(name: str, cfg: ModelConfig) -> nn.Module:
         loss, grad_norm = train_step(model, batch, schedule_dev, opt)
 
         if step % LOG_EVERY == 0 or step == STEPS - 1:
-            print(f"  step={step:>3d}  loss={loss:.4f}  grad_norm={grad_norm:.3f}")
+            # flush=True so progress appears live; without it, stdout is
+            # block-buffered when redirected and the terminal looks frozen
+            # for minutes during training.
+            print(
+                f"  step={step:>3d}  loss={loss:.4f}  grad_norm={grad_norm:.3f}",
+                flush=True,
+            )
 
     return model
 
