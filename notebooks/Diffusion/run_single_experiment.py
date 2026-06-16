@@ -47,12 +47,12 @@ EXPERIMENT_CFG = ModelConfig(
 # ----------------------------
 # TRAIN SETTINGS (FAST MODE)
 # ----------------------------
-STEPS = 3000
-BATCH_SIZE = 8
+STEPS = 10000
+BATCH_SIZE = 32
 LR = 3e-4
 LOG_EVERY = 25
 
-schedule = NoiseSchedule(T=100).to(device)
+schedule = NoiseSchedule(T=1000).to(device)
 
 # ----------------------------
 # MODEL + OPT
@@ -63,8 +63,9 @@ opt = torch.optim.AdamW(model.parameters(), lr=LR)
 loader = get_loader(BATCH_SIZE)
 data_iter = iter(loader)
 
+#fixed_batch = next(iter(loader)).to(device) # to test training on the same batch repeatedly
 print("\nModel ready. Starting training...\n")
-
+bucket_loss = {i: [] for i in range(10)}
 # ----------------------------
 # TRAIN LOOP
 # ----------------------------
@@ -74,8 +75,11 @@ for step in range(STEPS):
     except StopIteration:
         data_iter = iter(loader)
         batch = next(data_iter).to(device)
+    # batch = fixed_batch # to test training on the same batch repeatedly 
 
-    loss, grads = train_step(model, batch, schedule, opt)
+    loss, grads, buckets = train_step(model, batch, schedule, opt)
+    for b in buckets:
+        bucket_loss[int(b)].append(loss)
 
     if step % LOG_EVERY == 0 or step == STEPS - 1:
         print(
@@ -85,6 +89,11 @@ for step in range(STEPS):
             f"glob {grads.get('global',0):.3f} | "
             f"bottleneck {grads.get('bottleneck',0):.3f}"
         )
+
+    if step % 200 == 0:
+        for k in [0, 4, 9]:
+            if bucket_loss[k]:
+                print(f"t={k*10} loss={sum(bucket_loss[k])/len(bucket_loss[k]):.4f}")
 
 # ----------------------------
 # SAMPLING

@@ -5,3 +5,4 @@
 .DS_Store
 ./ML Studio/S2_model_complexity_polynomial_experiment copy.ipynb
 data/MNIST/raw/*
+data/mnist_64/mnist64_train.pt

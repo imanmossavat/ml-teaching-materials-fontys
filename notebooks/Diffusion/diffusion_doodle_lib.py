@@ -632,6 +632,7 @@ def train_step(
 
     B = batch.size(0)
     t = torch.randint(0, schedule.T, (B,), device=batch.device)
+    t_bucket = (t // 100) # bucket timesteps into groups of 100 for logging stability
 
     xt, noise = q_sample(batch, t, schedule)
     pred      = model(xt, t)
@@ -672,7 +673,7 @@ def train_step(
 
     optimizer.step()
 
-    return loss.item(), grad_norms
+    return loss.item(), grad_norms, t_bucket.detach().cpu()
 
 
 # =========================================================
