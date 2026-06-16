@@ -4,3 +4,4 @@
 /notebooks/temp/*
 .DS_Store
 ./ML Studio/S2_model_complexity_polynomial_experiment copy.ipynb
+data/MNIST/raw/*
