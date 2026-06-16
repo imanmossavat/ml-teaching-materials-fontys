@@ -77,12 +77,14 @@ KNOWN SIMPLIFICATIONS (intentional)
 """
 
 import math
+from pathlib import Path
 from dataclasses import dataclass
 from typing import Dict
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torchvision import datasets, transforms
 
 
 # =========================================================
@@ -735,49 +737,83 @@ def sample(
 
 
 # =========================================================
-# 8. SYNTHETIC DOODLE DATASET
+# 8. MNIST DATASET CACHED TO DISK
 # =========================================================
 
-class ToyDoodles(torch.utils.data.Dataset):
+class CachedMNIST64(torch.utils.data.Dataset):
     """
-    Minimal synthetic dataset: white circles on black backgrounds.
+    MNIST resized to 64x64 and cached on disk.
 
-    WHY THIS INSTEAD OF MNIST / CIFAR
-    -----------------------------------
-    - Zero external dependencies, works in any environment
-    - Structured enough that coherent generation is visually obvious
-    - Simple enough that failures are attributable to the model,
-      not to dataset difficulty
+    First run:
+      - download MNIST if needed
+      - resize every image to 64x64
+      - normalize to [-1, 1]
+      - save the processed tensor to disk
 
-    Each image is a single circle with random center and radius,
-    normalized to [-1, 1] (black=-1, white=+1).
+    Later runs:
+      - load the cached tensor directly
+
+    This keeps the training code fast and ensures every run sees
+    the exact same resized dataset.
     """
 
-    def __init__(self, size: int = 2000):
-        self.size = size
+    def __init__(self, images: torch.Tensor):
+        self.images = images
 
     def __len__(self) -> int:
-        return self.size
+        return self.images.size(0)
 
     def __getitem__(self, idx: int) -> torch.Tensor:
-        img = torch.zeros(1, 64, 64)
+        return self.images[idx]
 
-        cx, cy = torch.randint(10, 54, (2,)).tolist()
-        r      = torch.randint(3, 10, (1,)).item()
 
-        y, x = torch.meshgrid(
-            torch.arange(64), torch.arange(64), indexing="ij"
-        )
-        mask       = (x - cx) ** 2 + (y - cy) ** 2 < r ** 2
-        img[0][mask] = 1.0
+def _build_mnist_cache(
+    cache_dir: str | Path = "data/mnist_64",
+    train: bool = True,
+) -> Path:
+    cache_dir = Path(cache_dir)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    split = "train" if train else "test"
+    return cache_dir / f"mnist64_{split}.pt"
 
-        return img * 2.0 - 1.0   # [0,1] → [-1,1]
+
+def _load_or_create_mnist64(
+    cache_dir: str | Path = "data/mnist_64",
+    train: bool = True,
+) -> CachedMNIST64:
+    cache_path = _build_mnist_cache(cache_dir=cache_dir, train=train)
+
+    if cache_path.exists():
+        payload = torch.load(cache_path, map_location="cpu")
+        images = payload["images"]
+        return CachedMNIST64(images)
+
+    resize = transforms.Resize((64, 64), antialias=True)
+    to_tensor = transforms.ToTensor()
+
+    raw = datasets.MNIST(
+        root=str(Path(cache_dir).parent),
+        train=train,
+        download=True,
+    )
+
+    images = []
+    for img, _label in raw:
+        x = to_tensor(img)          # (1, 28, 28), [0, 1]
+        x = resize(x)               # (1, 64, 64)
+        x = x * 2.0 - 1.0           # [-1, 1]
+        images.append(x)
+
+    images = torch.stack(images, dim=0).contiguous()
+    torch.save({"images": images}, cache_path)
+    return CachedMNIST64(images)
 
 
 def get_loader(batch_size: int = 32) -> torch.utils.data.DataLoader:
-    """Return an infinite-friendly DataLoader over ToyDoodles."""
+    """Return a DataLoader over cached 64x64 MNIST images."""
+    dataset = _load_or_create_mnist64(cache_dir="data/mnist_64", train=True)
     return torch.utils.data.DataLoader(
-        ToyDoodles(),
+        dataset,
         batch_size=batch_size,
         shuffle=True,
         drop_last=True,
