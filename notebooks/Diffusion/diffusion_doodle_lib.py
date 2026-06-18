@@ -1,15 +1,12 @@
 """
 =========================================================
-DIFFUSION DOODLE LAB — CORE LIBRARY (DO NOT MODIFY)
+DIFFUSION DOODLE LAB — CORE LIBRARY  
 =========================================================
-
+Iman Mosavat — 2026-06-18
 PURPOSE
 -------
 This file implements a minimal diffusion system designed for
 controlled deep learning experimentation.
-
-It is NOT a research framework.
-It is NOT production code.
 
 It is a deterministic experimental substrate for studying:
 
@@ -55,8 +52,8 @@ learned projection anywhere. This is enforced by design:
   - input_proj lifts 1 → base_channels before any residual
     block sees the signal, so the first ConvBlock always
     sees ch_in == ch_out.
-  - up_proj collapses ch*2 → ch after skip concatenation,
-    again before any residual block sees the signal.
+  - GatedSkipFusion handles skip concatenation, meaning
+    StageBlocks always see ch_in == ch_out.
   - Every ConvBlock therefore always has ch_in == ch_out
     and the residual is x + f(x) with no parameters in x.
 
@@ -64,23 +61,90 @@ This makes use_residual a clean single-variable switch:
 toggling it adds or removes the identity shortcut and
 nothing else. No confounding from learned projections.
 
+TIME EMBEDDING INJECTION
+------------------------
+The timestep is injected at every encoder/decoder stage, not
+only the bottleneck. Each stage has a small linear layer that
+projects the shared time embedding vector (from TimeEmbedding)
+into the stage's channel width. This means every conv knows
+the current noise level directly, which is how production
+diffusion models work.
+
+GATED SKIP FUSION
+-----------------
+Skip connections are no longer simple additions. At each
+decoder stage:
+  1. The upsampled feature map and the skip are concatenated
+     along the channel axis.
+  2. A two-layer pointwise MLP (1×1 convolutions) fuses them.
+  3. A sigmoid gate, modulated by the time embedding, controls
+     how much of the fused skip information passes through.
+This replaces the previous skip_scale scalar and lets the
+network learn when (and at which timesteps) to trust skip
+features vs bottleneck features.
+
+T CONSISTENCY
+-------------
+ModelConfig.T is the single source of truth for the diffusion
+timestep count. Both NoiseSchedule and TimeEmbedding receive
+T from the same ModelConfig, making it impossible for them to
+diverge.
+
 KNOWN SIMPLIFICATIONS (intentional)
 -------------------------------------
 - No multi-head attention (unnecessary at 64x64)
 - Time embedding is a learned lookup table, not sinusoidal.
-  This is simpler to understand and sufficient for T=100.
+  This is simpler to understand and sufficient for small T.
 - Single-channel (grayscale) images only
-- Timestep injected at bottleneck only. Real diffusion models
-  inject at every stage. Sufficient here given T=100 and
-  simple dataset, but not how production models work.
 =========================================================
 """
 
+
+"""
+=========================================================
+CHANGELOG
+=========================================================
+
+2026-06-18  — v1.3.0
+
+  T consistency
+    ModelConfig.T is now the single source of truth for the
+    diffusion timestep count. Use get_schedule(cfg) to build
+    a NoiseSchedule guaranteed to match the model embedding
+    table. Direct NoiseSchedule(T=...) construction with a
+    hand-typed value is discouraged.
+
+  Time embedding at every stage
+    TimeEmbedding now outputs a shared vector (dim =
+    bottleneck channels). Per-stage TimeProject modules map
+    it to each stage's channel width and inject it before
+    every StageBlock in both encoder and decoder, not only
+    at the bottleneck.
+
+  Gated skip fusion (GatedSkipFusion)
+    Skip connections are no longer scaled additions. Each
+    decoder stage concatenates the upsampled map and the
+    skip, fuses them through a two-layer pointwise MLP, then
+    applies a sigmoid gate whose bias is driven by the time
+    embedding. The network learns to suppress skip features
+    at high noise levels and amplify them at low noise levels.
+    ModelConfig.skip_scale removed.
+
+  register_hook guard
+    Bottleneck gradient hook now checks h.requires_grad
+    before attaching, preventing a RuntimeError during
+    no_grad eval and sampling forwards.
+=========================================================
+"""
+
+
 import math
 from pathlib import Path
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict
 
+from scipy.fftpack import shift
+from sklearn.preprocessing import scale
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -101,6 +165,14 @@ class ModelConfig:
 
     Fields
     ------
+    T : int
+        Number of diffusion timesteps.  This is the single
+        source of truth shared by both the model's
+        TimeEmbedding table and NoiseSchedule.  Pass a
+        ModelConfig to get_schedule() to build a matching
+        NoiseSchedule — never construct NoiseSchedule(T=...)
+        directly with a different value.
+
     depth : int
         Number of down/up stages. Each stage halves spatial
         resolution and doubles channel count.
@@ -147,19 +219,19 @@ class ModelConfig:
 
         Do not set this to 1 unless you are deliberately
         demonstrating the U-Net skip confounder.
-    skip_scale : float
-        Multiplier for skip connections before fusion in the decoder.
-        Larger values give more weight to the skip features, smaller values give more weight to the upsampled features. 
-        If you want the model to use the bottleneck features more and rely less on the skip connections, you can set this to a value less than 1 (e.g., 0.3). 
     """
+    T: int                = 1000
     depth: int            = 3
     base_channels: int    = 8
     use_residual: bool    = True
-    use_norm: bool        = True
-    depth_per_stage: int  = 2
-    skip_scale: float       = 0.5   # multiplier for skip connections before fusion
+    use_norm:     bool    = True
+    depth_per_stage: int  = 2,
 
+DEBUG = False
 
+def debug(x, DEBUG, name):
+    if DEBUG:
+        print(f"{name:>18}: {tuple(x.shape)}")
 # =========================================================
 # 2. BUILDING BLOCKS
 # =========================================================
@@ -170,7 +242,8 @@ class ConvBlock(nn.Module):
 
     IMPORTANT: ch_in always equals ch_out by construction.
     The caller (StageBlock, SmallUNet) is responsible for
-    ensuring this. See input_proj and up_proj in SmallUNet.
+    ensuring this. See input_proj and GatedSkipFusion in
+    SmallUNet.
 
     The residual is always a pure identity: out = f(x) + x.
     There is no learned projection in the shortcut path.
@@ -201,7 +274,7 @@ class ConvBlock(nn.Module):
         else:
             self.norm = nn.Identity()
 
-        self.act = nn.SiLU()
+        self.act          = nn.SiLU()
         self.use_residual = use_residual
         # No projection ever needed: ch_in == ch_out by construction.
 
@@ -246,7 +319,7 @@ class StageBlock(nn.Module):
     ):
         super().__init__()
         # All blocks are ch → ch. Channel changes happen outside
-        # via input_proj and up_proj in SmallUNet.
+        # via input_proj and GatedSkipFusion in SmallUNet.
         self.blocks = nn.Sequential(*[
             ConvBlock(ch, use_norm, use_residual)
             for _ in range(depth_per_stage)
@@ -274,31 +347,191 @@ class TimeEmbedding(nn.Module):
     looks like X, so I should predict noise Y."
 
     Implementation: a simple lookup table (nn.Embedding) followed
-    by a linear projection into the channel dimension. This is
-    simpler than sinusoidal embeddings and sufficient for T=100.
+    by a linear projection into a shared embedding dimension.
+    Each stage then has a dedicated linear layer that projects
+    the shared embedding into that stage's channel width, so
+    every layer in the network knows the noise level directly.
 
-    SIMPLIFICATION NOTE
-    -------------------
-    This lab injects the timestep embedding only at the bottleneck.
-    Real diffusion models (DDPM, latent diffusion) inject it at
-    every stage so every layer knows the noise level directly.
-    Single-point injection is sufficient here given T=100 and
-    simple doodle data, but is not how production models work.
+    WHY A SHARED EMBEDDING DIMENSION?
+    ----------------------------------
+    All stages share the same embedding table but have different
+    channel counts. A single linear per stage projects from the
+    shared dim to the stage's ch. This is cheaper than having a
+    separate embedding table per stage.
+
+    T IS FIXED BY ModelConfig
+    -------------------------
+    The embedding table has exactly T rows.  T comes from
+    ModelConfig.T and must match the NoiseSchedule used during
+    training.  Use get_schedule(cfg) to build a guaranteed-
+    consistent NoiseSchedule — never pass a different T.
     """
 
-    def __init__(self, T: int, ch: int):
+    def __init__(self, T: int, emb_dim: int):
+        """
+        Parameters
+        ----------
+        T       : number of diffusion timesteps (from ModelConfig.T)
+        emb_dim : shared embedding dimension (set to bottleneck ch
+                  in SmallUNet so zero extra parameters are needed
+                  at the bottleneck stage)
+        """
         super().__init__()
-        self.table = nn.Embedding(T, ch)
-        self.proj  = nn.Linear(ch, ch)
+        self.table = nn.Embedding(T, emb_dim)
+        self.proj  = nn.Linear(emb_dim, emb_dim)
 
     def forward(self, t: torch.Tensor) -> torch.Tensor:
-        # t: (B,) integer timestep indices
-        # returns: (B, ch)
-        return self.proj(self.table(t))
+        """
+        Parameters
+        ----------
+        t : (B,) integer timestep indices, range [0, T)
+
+        Returns
+        -------
+        emb : (B, emb_dim) shared time embedding
+        """
+        return self.proj(self.table(t))   # (B, emb_dim)
+
+
+class TimeProject(nn.Module):
+    """
+    Produces FiLM parameters (scale, shift) for a stage.
+    """
+
+    def __init__(self, emb_dim: int, ch: int):
+        super().__init__()
+        self.linear = nn.Linear(emb_dim, 2 * ch)
+
+    def forward(self, emb: torch.Tensor):
+        gate_scale, gate_shift = self.linear(emb).chunk(2, dim=1)
+
+        gate_scale = gate_scale[:, :, None, None]
+        gate_shift = gate_shift[:, :, None, None]
+
+        return gate_scale, gate_shift
 
 
 # =========================================================
-# 4. SMALL U-NET
+# 4. GATED SKIP FUSION
+# =========================================================
+
+class GatedSkipFusion(nn.Module):
+    """
+    Fuses an upsampled feature map with its U-Net skip connection
+    via a learned MLP and a time-gated sigmoid.
+
+    WHY THIS REPLACES SIMPLE ADDITION
+    -----------------------------------
+    A fixed scalar (skip_scale) applies the same weight to every
+    skip, at every timestep, at every spatial position.  A gated
+    MLP can learn:
+      - at high noise levels (large t): trust the bottleneck more,
+        suppress skip features (they carry mostly noise).
+      - at low noise levels (small t): trust skip features more,
+        they carry fine structural detail.
+    The time gate makes this noise-level-aware automatically.
+
+    ARCHITECTURE
+    ------------
+    Inputs:
+      h    : (B, ch, H, W)  upsampled + projected feature map
+      skip : (B, ch, H, W)  encoder skip at this resolution
+      gate_bias : (B, ch)   time-projected gate bias from TimeProject
+
+    Step 1 — concatenate:
+      fused = cat([h, skip], dim=1)   # (B, 2ch, H, W)
+
+    Step 2 — pointwise MLP (two 1×1 convolutions):
+      fused = act(norm(conv1(fused)))  # (B, ch, H, W)
+      fused = norm(conv2(fused))       # (B, ch, H, W)  (no act yet)
+
+    Step 3 — time gate:
+      gate = sigmoid(fused + gate_bias[:, :, None, None])
+      out  = gate * fused
+
+    The gate broadcasts over spatial dims.  Its bias comes from
+    the shared time embedding projected to ch, so the network
+    can learn to suppress or amplify skip information as a
+    function of the current noise level.
+
+    RESIDUAL INTEGRITY
+    ------------------
+    This module sits outside all ConvBlocks, so it does not
+    affect the use_residual single-variable switch.
+    """
+
+    def __init__(self, ch: int, use_norm: bool, emb_dim: int):
+        """
+        Parameters
+        ----------
+        ch       : channel count of both h and skip (they must match)
+        use_norm : whether to apply GroupNorm (mirrors cfg.use_norm)
+        emb_dim  : shared time embedding dimension (for gate projection)
+        """
+        super().__init__()
+
+        # MLP: 2ch → ch → ch  (pointwise, no spatial mixing)
+        self.conv1 = nn.Conv2d(ch * 2, ch, kernel_size=1, bias=False)
+        self.conv2 = nn.Conv2d(ch,     ch, kernel_size=1, bias=True)
+
+        if use_norm:
+            num_groups = min(8, ch)
+            while ch % num_groups != 0 and num_groups > 1:
+                num_groups -= 1
+            self.norm1 = nn.GroupNorm(num_groups, ch)
+            self.norm2 = nn.GroupNorm(num_groups, ch)
+        else:
+            self.norm1 = nn.Identity()
+            self.norm2 = nn.Identity()
+
+        self.act = nn.SiLU()
+
+        # Gate bias: shared time emb → ch
+        self.gate_proj = TimeProject(emb_dim, ch)
+
+    def forward(
+        self,
+        h:   torch.Tensor,
+        skip: torch.Tensor,
+        t_emb: torch.Tensor,
+    ) -> torch.Tensor:
+        """
+        Parameters
+        ----------
+        h     : (B, ch, H, W)
+        skip  : (B, ch, H, W)
+        t_emb : (B, emb_dim)  shared time embedding
+
+        Returns
+        -------
+        (B, ch, H, W)
+        """
+        # --- Step 1: concatenate ---
+        # concatenate decoder feature and encoder skip
+        
+        fused = torch.cat([h, skip], dim=1)
+        debug(fused, DEBUG, "fused skip cat")
+
+        # fuse them
+        fused = self.act(self.norm1(self.conv1(fused)))
+        fused = self.norm2(self.conv2(fused))
+        debug(fused, DEBUG, "fused skip after MLP")
+        # time conditioning (same FiLM pattern used everywhere else)
+        scale, shift = self.gate_proj(t_emb)
+
+        fused = fused * (1.0 + scale) + shift
+
+        # gate
+        gate = torch.sigmoid(fused)
+
+        out = gate * fused
+        debug(out, DEBUG, "output after gate")  
+
+        return out
+
+
+# =========================================================
+# 5. SMALL U-NET
 # =========================================================
 
 class SmallUNet(nn.Module):
@@ -317,37 +550,49 @@ class SmallUNet(nn.Module):
         stage depth (bottleneck): base_channels * 2^depth
 
     At each down stage:
+      - Time embedding injected (projected to stage's ch)
       - StageBlock processes at current resolution
       - skip connection saved
       - avg_pool2d halves spatial dims
-      - up_proj doubles channel count (ch → ch*2)
+      - down_proj doubles channel count (ch → ch*2)
 
     At each up stage:
       - bilinear upsample doubles spatial dims
       - up_proj halves channel count to match skip (ch → ch//2)
-      - skip concatenated on channel axis (ch//2 + ch//2 = ch)
-      - StageBlock processes the combined feature map
+      - GatedSkipFusion merges upsampled map and skip,
+        conditioned on time embedding
+      - Time embedding injected (projected to stage's ch)
+      - StageBlock processes the fused feature map
 
     Residual design
     ---------------
     All ConvBlocks see ch_in == ch_out. Channel changes happen
-    only via parameter-free operations or dedicated pointwise
-    convs that live outside the residual path:
+    only via dedicated pointwise convs that live outside the
+    residual path:
 
       input_proj  : nn.Conv2d(1, base_channels, 1)  — lifts input
                     channels before any StageBlock sees the signal.
       down_projs  : nn.Conv2d(ch, ch*2, 1) per stage — doubles
                     channels after pooling, outside residual path.
       up_projs    : nn.Conv2d(ch, ch//2, 1) per stage — halves
-                    channels before skip concat, outside residual.
+                    channels before GatedSkipFusion.
 
-    This ensures use_residual is a clean single-variable switch.
+    Time conditioning
+    -----------------
+    A single TimeEmbedding table produces a shared embedding
+    vector (B, emb_dim) from the integer timestep.  Per-stage
+    TimeProject layers map this to each stage's channel width.
+    The embedding is injected:
+      - At every encoder stage (before StageBlock)
+      - At the bottleneck
+      - Inside every GatedSkipFusion gate (decoder)
+      - At every decoder stage (before StageBlock)
 
-    Timestep conditioning
-    ---------------------
-    A learned embedding for t is added to the bottleneck
-    feature map (broadcast over spatial dims). This lets the
-    model behave differently at different noise levels.
+    T consistency
+    -------------
+    ModelConfig.T is passed directly into TimeEmbedding(T=...).
+    Use get_schedule(cfg) to build a matching NoiseSchedule.
+    Never construct NoiseSchedule(T=X) with a different X.
 
     Spatial resolution constraint
     -----------------------------
@@ -365,95 +610,72 @@ class SmallUNet(nn.Module):
             f"Safe values: depth ∈ {{1, 2, 3, 4, 5, 6}}."
         )
 
-        self.cfg   = cfg
-        ch         = cfg.base_channels
-        dps        = cfg.depth_per_stage
-        skip_scale        = cfg.skip_scale
-        
-        
-        self.skip_scale = skip_scale   # multiplier for skip connections before fusion 
+        # Bottleneck diagnostics buffer
+        self._bottleneck_grad       = None
+        self._bottleneck_activation = None
+
+        self.cfg = cfg
+        ch       = cfg.base_channels
+        dps      = cfg.depth_per_stage
 
         # ── input projection ──────────────────────────────────────
         # Lifts 1 grayscale channel to base_channels before any
-        # StageBlock sees the signal. This ensures all ConvBlocks
-        # have ch_in == ch_out and residuals are pure identities.
+        # StageBlock sees the signal.
         self.input_proj = nn.Conv2d(1, ch, kernel_size=1, bias=False)
 
-        # ── encoder ───────────────────────────────────────────────
-        # Stage i processes at channel count ch * 2^i.
-        # After each stage: pool spatially, double channels.
-        self.in_stage = StageBlock(ch, cfg.use_norm, cfg.use_residual, dps)
+        # ── time embedding ────────────────────────────────────────
+        # emb_dim = bottleneck channel count so we can inject at
+        # the bottleneck without any extra projection.
+        bottleneck_ch = cfg.base_channels * (2 ** cfg.depth)
+        self.time_emb = TimeEmbedding(T=cfg.T, emb_dim=bottleneck_ch)
 
-        self.down_stages = nn.ModuleList()
-        self.down_projs  = nn.ModuleList()   # ch → ch*2 after each pool
+        # ── encoder ───────────────────────────────────────────────
+        # Per-stage time projections: emb_dim → stage ch
+        self.in_stage = StageBlock(ch, cfg.use_norm, cfg.use_residual, dps)
+        self.in_time  = TimeProject(bottleneck_ch, ch)
+
+        self.down_stages    = nn.ModuleList()
+        self.down_projs     = nn.ModuleList()   # ch → ch*2 after pool
+        self.down_time_proj = nn.ModuleList()   # emb_dim → stage ch
 
         ch_now = ch
         for _ in range(cfg.depth):
+            # Channel count at the next (deeper) stage
+            ch_next = ch_now * 2
             self.down_projs.append(
-                nn.Conv2d(ch_now, ch_now * 2, kernel_size=1, bias=False)
+                nn.Conv2d(ch_now, ch_next, kernel_size=1, bias=False)
             )
-            ch_now *= 2
             self.down_stages.append(
-                StageBlock(ch_now, cfg.use_norm, cfg.use_residual, dps)
+                StageBlock(ch_next, cfg.use_norm, cfg.use_residual, dps)
             )
+            self.down_time_proj.append(
+                TimeProject(bottleneck_ch, ch_next)
+            )
+            ch_now = ch_next
 
         # ch_now is now base_channels * 2^depth — the bottleneck width
-
-        # ── timestep embedding ────────────────────────────────────
-        # Projected into bottleneck channel dimension.
-        self.time_emb = TimeEmbedding(T=100, ch=ch_now)
+        # (equals bottleneck_ch; emb_dim already matches so no extra proj)
 
         # ── decoder ───────────────────────────────────────────────
-        # Each up stage: halve channels via up_proj, concat skip
-        # (restores ch), then StageBlock at that ch.
-        self.up_stages = nn.ModuleList()
-        self.up_projs  = nn.ModuleList()   # ch → ch//2 before skip concat
-
-        for _ in range(cfg.depth):
-            self.up_projs.append(
-                nn.Conv2d(ch_now, ch_now // 2, kernel_size=1, bias=False)
-            )
-            ch_now //= 2
-            # after concat with skip: ch_now + ch_now = ch_now * 2
-            # but we process at ch_now * 2 then the next up_proj halves again.
-            # StageBlock sees ch_now channels (after up_proj, before concat
-            # and after concat is handled by the *next* up_proj).
-            #
-            # Actually: up_proj gives ch_now, skip is also ch_now,
-            # concat gives ch_now*2, StageBlock must handle ch_now*2.
-            # So StageBlock here takes ch_now * 2.
-            self.up_stages.append(
-                StageBlock(ch_now * 2, cfg.use_norm, cfg.use_residual, dps)
-            )
-
-        # Wait — this means StageBlock sees ch_in != ch_out again.
-        # Fix: add a post-concat proj that collapses ch*2 → ch
-        # before StageBlock, keeping all StageBlocks at fixed ch.
-        # Rebuild properly below.
-
-        # ── rebuild decoder correctly ─────────────────────────────
-        # Pattern per up stage:
-        #   upsample → up_proj (ch_now → ch_now//2) → concat skip
-        #   → post_concat_proj (ch_now → ch_now//2) → StageBlock(ch_now//2)
-        #
-        # This ensures StageBlock always sees ch_in == ch_out.
-
-        del self.up_stages, self.up_projs
-
-        ch_now = cfg.base_channels * (2 ** cfg.depth)   # reset to bottleneck
-
-        self.up_projs        = nn.ModuleList()   # ch → ch//2
-        self.up_stages       = nn.ModuleList()   # StageBlock at ch//2
+        self.up_projs     = nn.ModuleList()   # ch → ch//2
+        self.skip_fusions = nn.ModuleList()   # GatedSkipFusion per stage
+        self.up_stages    = nn.ModuleList()   # StageBlock at ch//2
+        self.up_time_proj = nn.ModuleList()   # emb_dim → stage ch
 
         for _ in range(cfg.depth):
             ch_out = ch_now // 2
             self.up_projs.append(
                 nn.Conv2d(ch_now, ch_out, kernel_size=1, bias=False)
             )
-            # after concat: ch_out (upsampled) + ch_out (skip) = ch_now
- 
+            # GatedSkipFusion fuses h (ch_out) + skip (ch_out) → ch_out
+            self.skip_fusions.append(
+                GatedSkipFusion(ch_out, cfg.use_norm, emb_dim=bottleneck_ch)
+            )
             self.up_stages.append(
                 StageBlock(ch_out, cfg.use_norm, cfg.use_residual, dps)
+            )
+            self.up_time_proj.append(
+                TimeProject(bottleneck_ch, ch_out)
             )
             ch_now = ch_out
 
@@ -467,56 +689,89 @@ class SmallUNet(nn.Module):
         Parameters
         ----------
         x : (B, 1, 64, 64)   noisy image at timestep t
-        t : (B,)              integer timestep indices
+        t : (B,)              integer timestep indices in [0, cfg.T)
 
         Returns
         -------
         pred_noise : (B, 1, 64, 64)
         """
-        # Lift input channels: 1 → base_channels
-        h = self.input_proj(x)          # (B, ch, 64, 64)
 
-        # Encoder
+        # Shared time embedding — computed once, reused at every stage
+        t_emb = self.time_emb(t)   # (B, emb_dim)
+
+        # ── Lift input channels: 1 → base_channels ──
+        debug(x, DEBUG, "input x")
+
+        h = self.input_proj(x)   # (B, ch, 64, 64)
+        debug(h, DEBUG, "after input proj")
+
+        # ── Encoder input stage ──
+        # Inject time, then process
+        
+        scale, shift = self.in_time(t_emb)
+
+        h = h * (1.0 + scale) + shift
         h = self.in_stage(h)
 
+        # ── Encoder down stages ──
         skips = []
-        for down_proj, down_stage in zip(self.down_projs, self.down_stages):
-            skips.append(h)                           # save before pool+proj
-            h = F.avg_pool2d(h, 2)                   # halve spatial
-            h = down_proj(h)                          # double channels
-            h = down_stage(h)                         # process
+        for down_proj, down_stage, t_proj in zip(
+            self.down_projs, self.down_stages, self.down_time_proj
+        ):
+            debug(h, DEBUG, "before down stage")
+            skips.append(h)                    # save before pool+proj
+            h = F.avg_pool2d(h, 2)            # halve spatial
+            h = down_proj(h)
+            debug(h, DEBUG, "after down proj")
+            # double channels
+            scale, shift = t_proj(t_emb)
+            debug(scale, DEBUG, "scale after down proj")
+            debug(shift, DEBUG, "shift after down proj")
 
-        # Bottleneck: inject timestep
-        # t_emb: (B, ch_bottleneck) → (B, ch_bottleneck, 1, 1)
-        t_emb = self.time_emb(t)[:, :, None, None]
-        h = h + t_emb
+            h = h * (1.0 + scale) + shift            
+            h = down_stage(h)                  # process
 
-        # Decoder
-        for up_proj, up_stage in zip(self.up_projs, self.up_stages):
+        # ── Bottleneck: inject timestep ──
+        # emb_dim == bottleneck_ch, so we add directly
+        h = h + t_emb[:, :, None, None]
 
-            # (B, C, H, W) → (B, 2C, 2H, 2W)
+        if self.training and h.requires_grad:
+            self._bottleneck_activation = h.detach()
+            self._bottleneck_grad       = None
+
+            def _save_grad(grad):
+                self._bottleneck_grad = grad
+
+            h.register_hook(_save_grad)
+
+        # ── Decoder up stages ──
+        for up_proj, skip_fusion, up_stage, t_proj in zip(
+            self.up_projs, self.skip_fusions, self.up_stages, self.up_time_proj
+        ):
+            # Upsample: (B, C, H, W) → (B, C, 2H, 2W)
             h = F.interpolate(
                 h,
                 scale_factor=2,
                 mode="bilinear",
-                align_corners=False
+                align_corners=False,
             )
+            debug(h, DEBUG, "decoder after upsample")
+            # Project channels: bottleneck_ch//k → skip_ch
+            h = up_proj(h)   # (B, ch_out, 2H, 2W)
+            debug(h, DEBUG, "decoder after up proj")
 
-            # (B, 2C, 2H, 2W) → (B, C, 2H, 2W)
-            # bottleneck channels → skip channels
-            h = up_proj(h)
+            # Gated skip fusion (replaces h + skip_scale * skip)
+            skip = skips.pop()                        # (B, ch_out, 2H, 2W)
+            h    = skip_fusion(h, skip, t_emb)        # (B, ch_out, 2H, 2W)
+            debug(h, DEBUG, "decoder after skip fusion")
+            # Inject time, then process
+            scale, shift = t_proj(t_emb)
+            debug(scale, DEBUG, "scale after up proj")
+            debug(shift, DEBUG, "shift after up proj")  
 
-            # skip from encoder at same resolution
-            # (B, C, 2H, 2W)
-            skip = skips.pop()
-
-            # scaled skip fusion
-            # (B, C, 2H, 2W) + (B, C, 2H, 2W) → (B, C, 2H, 2W)
-            h = h + self.skip_scale * skip
-
-            # StageBlock keeps channel size fixed
-            # (B, C, 2H, 2W) → (B, C, 2H, 2W)
+            h = h * (1.0 + scale) + shift            
             h = up_stage(h)
+            debug(h, DEBUG, "decoder after up stage")
 
         return self.out_conv(h)
 
@@ -527,15 +782,20 @@ def build_model(cfg: ModelConfig) -> nn.Module:
 
 
 # =========================================================
-# 5. DIFFUSION PROCESS
+# 6. NOISE SCHEDULE
 # =========================================================
 
 class NoiseSchedule:
     """
     Fixed linear DDPM noise schedule.
 
+    DO NOT CONSTRUCT THIS DIRECTLY with an arbitrary T.
+    Use get_schedule(cfg) to guarantee T matches the model's
+    TimeEmbedding table.
+
     All tensors are stored on CPU and moved to the correct
-    device inside q_sample / sample via the input tensor's device.
+    device inside q_sample / sample via the input tensor's
+    device.
 
     Attributes (all CPU tensors, shape (T,))
     -----------------------------------------
@@ -544,7 +804,7 @@ class NoiseSchedule:
     alpha_bar : cumulative product of alphas (signal retention)
     """
 
-    def __init__(self, T: int = 100):
+    def __init__(self, T: int):
         self.T = T
 
         betas     = torch.linspace(1e-4, 0.02, T)
@@ -564,6 +824,27 @@ class NoiseSchedule:
         s.alpha_bar = self.alpha_bar.to(device)
         return s
 
+
+def get_schedule(cfg: ModelConfig) -> NoiseSchedule:
+    """
+    Build a NoiseSchedule that is guaranteed to match the model.
+
+    This is the ONLY correct way to construct a NoiseSchedule.
+    It reads T from ModelConfig so the schedule and the model's
+    TimeEmbedding table cannot diverge.
+
+    Usage
+    -----
+        cfg      = ModelConfig(T=1000, ...)
+        model    = build_model(cfg)
+        schedule = get_schedule(cfg).to(device)
+    """
+    return NoiseSchedule(T=cfg.T)
+
+
+# =========================================================
+# 7. FORWARD DIFFUSION
+# =========================================================
 
 def q_sample(
     x0: torch.Tensor,
@@ -588,7 +869,7 @@ def q_sample(
 
 
 # =========================================================
-# 6. TRAINING STEP
+# 8. TRAINING STEP
 # =========================================================
 
 def train_step(
@@ -596,88 +877,93 @@ def train_step(
     batch: torch.Tensor,
     schedule: NoiseSchedule,
     optimizer: torch.optim.Optimizer,
-) -> tuple[float, Dict[str, float]]:
-    """
-    Single gradient update step.
+) -> tuple[float, Dict[str, float], torch.Tensor]:
 
-    The schedule must already be on the same device as batch/model.
-    Use schedule.to(device) once before the training loop.
-
-    Returns
-    -------
-    loss      : float
-        MSE between predicted and actual noise.
-
-    grad_norms : dict[str, float]
-        Per-module-group gradient L2 norms, plus 'global'.
-        Keys: 'input_proj', 'encoder', 'bottleneck',
-              'decoder', 'output', 'global'.
-
-        Watching individual keys reveals which parts of the
-        network are learning, stalling, or exploding — a single
-        global scalar hides this entirely.
-
-    Teaching notes
-    --------------
-    - Stable training → all norms steady across steps
-    - use_norm=False  → encoder/decoder norms may spike or drift
-    - use_residual=False + depth_per_stage>=2 → encoder norms
-      decay toward zero while decoder norms stay healthy
-    - Near-zero encoder norms for many steps then a sudden jump
-      = frozen early layers (visible in EXP4)
-    - Large global norm spikes often precede loss divergence
-    """
+    model._bottleneck_grad = None
     model.train()
     optimizer.zero_grad()
 
-    B = batch.size(0)
-    t = torch.randint(0, schedule.T, (B,), device=batch.device)
-    t_bucket = (t // 100) # bucket timesteps into groups of 100 for logging stability
+    B      = batch.size(0)
+    device = batch.device
 
+    # sample timesteps
+    t = torch.randint(0, schedule.T, (B,), device=device)
+
+    # forward diffusion
     xt, noise = q_sample(batch, t, schedule)
-    pred      = model(xt, t)
-    loss      = F.mse_loss(pred, noise)
+
+    # predict noise
+    pred = model(xt, t)
+    loss = F.mse_loss(pred, noise)
 
     loss.backward()
 
-    # ── per-group gradient norms ──────────────────────────────────
+    # -------------------------------------------------
+    # bottleneck activation gradient (TRUE signal)
+    # -------------------------------------------------
+    bottleneck_grad_norm = 0.0
+    if (
+        hasattr(model, "_bottleneck_grad")
+        and model._bottleneck_grad is not None
+    ):
+        bottleneck_grad_norm = model._bottleneck_grad.norm().item()
+
+    # -------------------------------------------------
+    # helper: parameter grad norm
+    # -------------------------------------------------
     def _norm(params):
-        sq = sum(
-            p.grad.data.norm(2).item() ** 2
-            for p in params if p.grad is not None
-        )
+        sq = 0.0
+        for p in params:
+            if p.grad is None:
+                continue
+            sq += p.grad.detach().pow(2).sum().item()
         return math.sqrt(sq)
 
-    # Only SmallUNet exposes named groups; fall back to global only.
-    if hasattr(model, 'input_proj'):
+    # -------------------------------------------------
+    # group-wise gradient norms
+    # -------------------------------------------------
+    if hasattr(model, "input_proj"):
+
         grad_norms = {
-            'input_proj' : _norm(model.input_proj.parameters()),
-            'encoder'    : _norm(
-                list(model.in_stage.parameters()) +
-                list(model.down_stages.parameters()) +
-                list(model.down_projs.parameters())
+            "input_proj": _norm(model.input_proj.parameters()),
+
+            "encoder": _norm(
+                list(model.in_stage.parameters())
+                + list(model.in_time.parameters())
+                + list(model.down_stages.parameters())
+                + list(model.down_projs.parameters())
+                + list(model.down_time_proj.parameters())
             ),
-            'bottleneck' : _norm(model.time_emb.parameters()),
-            'decoder'    : _norm(
-                list(model.up_stages.parameters()) +
-                list(model.up_projs.parameters())
-            )   ,
-            'output'     : _norm(model.out_conv.parameters()),
+
+            # THIS is the real bottleneck signal (activation grad)
+            "bottleneck": bottleneck_grad_norm,
+
+            "decoder": _norm(
+                list(model.up_stages.parameters())
+                + list(model.up_projs.parameters())
+                + list(model.skip_fusions.parameters())
+                + list(model.up_time_proj.parameters())
+            ),
+
+            "output": _norm(model.out_conv.parameters()),
         }
-        total_sq = sum(v ** 2 for v in grad_norms.values())
-        grad_norms['global'] = math.sqrt(total_sq)
+
+        total_sq        = sum(v ** 2 for v in grad_norms.values())
+        grad_norms["global"] = math.sqrt(total_sq)
+
     else:
-        # Fallback for non-SmallUNet models
-        global_norm = _norm(model.parameters())
-        grad_norms  = {'global': global_norm}
+        grad_norms = {"global": _norm(model.parameters())}
 
     optimizer.step()
 
-    return loss.item(), grad_norms, t_bucket.detach().cpu()
+    # bucket timestep for diagnostics
+    t_bucket = (t // max(1, (schedule.T // 10))).detach().cpu()
+
+    return loss.item(), grad_norms, t_bucket
 
 
 # =========================================================
-# 7. SAMPLING (REVERSE DIFFUSION)
+# 9. SAMPLING (REVERSE DIFFUSION)
 # =========================================================
 
 @torch.no_grad()
@@ -695,7 +981,7 @@ def sample(
     Parameters
     ----------
     model       : trained SmallUNet
-    schedule    : NoiseSchedule (will be moved to device here)
+    schedule    : NoiseSchedule — use get_schedule(cfg).to(device)
     device      : torch.device — where to run inference
     num_samples : how many images to generate
 
@@ -738,7 +1024,7 @@ def sample(
 
 
 # =========================================================
-# 8. MNIST DATASET CACHED TO DISK
+# 10. MNIST DATASET CACHED TO DISK
 # =========================================================
 
 class CachedMNIST64(torch.utils.data.Dataset):
@@ -786,10 +1072,10 @@ def _load_or_create_mnist64(
 
     if cache_path.exists():
         payload = torch.load(cache_path, map_location="cpu")
-        images = payload["images"]
+        images  = payload["images"]
         return CachedMNIST64(images)
 
-    resize = transforms.Resize((64, 64), antialias=True)
+    resize    = transforms.Resize((64, 64), antialias=True)
     to_tensor = transforms.ToTensor()
 
     raw = datasets.MNIST(
@@ -800,9 +1086,9 @@ def _load_or_create_mnist64(
 
     images = []
     for img, _label in raw:
-        x = to_tensor(img)          # (1, 28, 28), [0, 1]
-        x = resize(x)               # (1, 64, 64)
-        x = x * 2.0 - 1.0           # [-1, 1]
+        x = to_tensor(img)     # (1, 28, 28), [0, 1]
+        x = resize(x)          # (1, 64, 64)
+        x = x * 2.0 - 1.0      # [-1, 1]
         images.append(x)
 
     images = torch.stack(images, dim=0).contiguous()
