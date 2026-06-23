@@ -1,5 +1,8 @@
 import torch
 from torchvision.utils import make_grid, save_image
+from diffusion_doodle_lib_temp import set_debug
+set_debug(True)
+from diffusion_doodle_lib_temp import step_end
 
 from diffusion_doodle_lib_temp import (
     ModelConfig,
@@ -8,20 +11,17 @@ from diffusion_doodle_lib_temp import (
     train_step,
     sample,
     get_loader,
-    step_end,
-    set_debug,
 )
 
-set_debug(True)
-
 device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+
 print("Using device:", device)
 
 CFG = ModelConfig(
     T=1000,
     depth=3,
     base_channels=16,
-    depth_per_stage=2,
+    depth_per_stage=3,
 )
 
 model = build_model(CFG).to(device)
@@ -41,16 +41,14 @@ for step in range(2000):
         data_iter = iter(loader)
         batch = next(data_iter).to(device)
 
-    loss, _, _ = train_step(model, batch, schedule, opt)
-
+    loss, grads, buckets = train_step(model, batch, schedule, opt)
     step_end(loss)
-
     if step % 50 == 0:
         print(step, loss)
 
 print("\nSampling...")
 
-imgs = sample(model, schedule, device, num_samples=16)
+imgs = sample(model, schedule, device, num_samples=16).clamp(-1, 1)
 grid = make_grid(imgs, nrow=4, normalize=True, value_range=(-1, 1))
 
 save_image(grid, "single_experiment_samples.png")
