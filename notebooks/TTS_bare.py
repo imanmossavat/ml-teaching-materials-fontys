@@ -1,3 +1,26 @@
+"""
+Local Text-to-Speech Engine using Kokoro TTS.
+Install the dependencies below to run this script. Then run the script to generate a WAV file from the provided text block.
+
+Dependencies:
+    brew install espeak-ng soundfile
+    pip install torch kokoro soundfile numpy
+
+You can use the LLM prompt to pre-process your markdown or academic document into a raw text block optimized for TTS reading.
+
+LLM Pre-Processing Prompt:
+    "Convert the following markdown or academic document into a raw text block optimized for Text-to-Speech reading. 
+    1. Transform all mathematical equations, variables, and LaTeX expressions into fully spelled-out, naturally spoken English words. 
+    2. Convert markdown headers into spoken cues (e.g., '# Title' becomes 'Document Title: [Title].', '## Heading' becomes 'Section Heading: [Heading].'). 
+    3. Completely strip out all markdown syntax like asterisks, brackets, citation numbers, and reference blocks. 
+    4. Provide only the final clean text block without any markdown code wrappers or introductory conversational comments."
+
+Way of Working:
+    1. Paste the LLM-optimized text into the orchestrator block at the bottom of this script.
+    2. Run the script. It automatically detects and leverages CUDA, Apple Silicon MPS, or CPU.
+    3. A unique timestamped folder is created inside a 'data/' directory to store your generated WAV files without overwriting previous sessions.
+"""
+
 import os
 import torch
 import soundfile as sf
@@ -5,18 +28,40 @@ import numpy as np
 from kokoro import KPipeline
 from datetime import datetime
 
-# Diagnostic Modules
-import logging
-import sys
-import warnings
-import traceback
-import inspect
-import functools
-import types
 
 # ==========================================
 # 1. FILE SYSTEM / UTILITY CONCERN
 # ==========================================
+
+def resolve_io_paths(input_filepath=None, output_filename=None):
+    """
+    Decoupled path resolution logic.
+    Determines where the input file lives, and builds a relative 
+    'data/YYYYMMDD_HHMMSS/' workspace directly adjacent to it.
+    """
+    # Find where the script is located to anchor default files
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    absolute_input_path = os.path.dirname(os.path.abspath(input_filepath))
+    
+    # 1. Check if the input text file exists
+    if os.path.exists(absolute_input_path):
+        # Base the output data directory in the exact same folder as the text file
+        base_dir = absolute_input_path
+    else:
+        # Fallback path if the text file doesn't exist yet
+        base_dir = script_dir
+        
+    # 2. Build the structured timestamp directory
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    target_data_dir = os.path.join(base_dir, "data", timestamp)
+    
+    os.makedirs(target_data_dir, exist_ok=True)
+    absolute_output_path = os.path.join(target_data_dir, output_filename)
+    
+    return absolute_input_path, absolute_output_path
+
+
+
 def generate_output_path(filename="output.wav"):
     """
     Handles folder structural logic independently.

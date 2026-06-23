@@ -7,3 +7,4 @@
 data/MNIST/raw/*
 data/mnist_64/mnist64_train.pt
 *.png
+/notebooks/data/*
