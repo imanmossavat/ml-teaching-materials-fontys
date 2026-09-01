@@ -1,9 +1,0 @@
-# Ignore all PNG images
-*.png
-
-# Ignore cache directories (common names)
-__pycache__/
-*.cache
-
-# Optional: general cache folders used by tools
-.cache/
