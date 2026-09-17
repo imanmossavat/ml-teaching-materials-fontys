@@ -11,7 +11,7 @@ For now, we will use Colab so you can get started quickly. Later, you can also s
 ## Open the course materials in Colab
 
 1. Go to [Google Colab](https://colab.research.google.com/).
-2. Create a **New Notebook**.
+2. File -> Open Notebook
 3. On the left side, select the **GitHub** tab.
 4. Enter:
 
