@@ -8,7 +8,11 @@ These activities go beyond the main lab. They are intended for groups that finis
 
 The graph you built in the main lab is a picture of which variables are directly associated. If we are willing to interpret the arrows as a generative recipe, we can write the joint probability as a product of conditional probabilities:
 
-$$P(F, C, P, T) = P(F) \\cdot P(C|F) \\cdot P(P|F) \\cdot P(T|P)$$
+$$
+\begin{aligned}
+P(F, C, P, T) = P(F) \cdot P(C|F) \cdot P(P|F) \cdot P(T|P)
+\end{aligned}
+$$
 
 For the standard groups this factorisation predicts the counts very well. For groups D and G it does not, because their data contain an extra direct association between `ticket_class` and `party`.
 
@@ -34,12 +38,12 @@ Files: `slides and readers/stats/model.py`, `slides and readers/stats/reveal_sim
 
 ## Extension 3: Intervention vs observation
 
-In the main lab you estimated $P(T \\mid C, P)$ from the observed data. An **intervention** sets `ticket_class` to a value rather than observing it. The simulator's `do_C=` argument lets you do this.
+In the main lab you estimated $P(T \mid C, P)$ from the observed data. An **intervention** sets `ticket_class` to a value rather than observing it. The simulator's `do_C=` argument lets you do this.
 
 Compare:
 
-- $P(T \\mid C=\\text{First}, P=\\text{Leisure})$ from the observed data.
-- $P(T \\mid \\text{do}(C=\\text{First}), P=\\text{Leisure})$ from the simulator.
+- $P(T \mid C=\text{First}, P=\text{Leisure})$ from the observed data.
+- $P(T \mid \text{do}(C=\text{First}), P=\text{Leisure})$ from the simulator.
 
 If they differ, why? (Hint: what other path is opened or closed by observing vs setting ticket class?)
 
