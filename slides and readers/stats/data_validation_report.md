@@ -50,7 +50,7 @@ all other groups receive `large_sample_A.csv`.
 - `generate_data.py` — regenerate shipped CSVs.
 - `qa.py` — quality-assurance functions.
 - `validate_data.py` — full Monte-Carlo validation (writes `validation_results.pkl`).
-- `answer_keys/` — expected test verdicts for each group.
+- `CSVs/` — expected test verdicts for each group.
 - `extension/` — large-sample CSVs.
 - `group_assignments.csv` — private map of group -> hidden edge.
 - `reveal_simulator.py` — optional simulator for Module D (intervention / do-operator).

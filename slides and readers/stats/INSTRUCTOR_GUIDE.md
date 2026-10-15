@@ -73,6 +73,6 @@ after every conditioning set.
 - `validate_data.py` — Monte-Carlo validation (writes `validation_results.pkl`).
 - `data_validation_report.md` — summary of validation results.
 - `group_assignments.csv` — private map of group -> hidden edge.
-- `answer_keys/` — expected test verdicts for each group.
+- `CSVs/` — expected test verdicts for each group.
 - `extension/` — 100 000-row CSVs for fast groups.
 - `reveal_simulator.py` — optional simulator used in Module D.
