@@ -9,5 +9,5 @@ data/mnist_64/mnist64_train.pt
 *.png
 ./notebooks/data/*
 ./lerobot/*
-/stats/04_dependence_structures_counts_to_graphs/*
-!/stats/04_dependence_structures_counts_to_graphs/.gitkeep
+/stats/04_dependence_structures_counts_to_graphs/Answer_files_dont_publish/*
+!/stats/04_dependence_structures_counts_to_graphs/Answer_files_dont_publish/.gitkeep
