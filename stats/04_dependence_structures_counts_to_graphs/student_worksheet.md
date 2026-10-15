@@ -1,87 +1,115 @@
-# Who influences whom? Student worksheet
+# Lab 4 worksheet: From Counts to Dependence Structures
 
-**Group letter:** ______  **Names:** ______________________________
+**Group:** __________  **Names:** _________________________________
 
-Fill this in as you go. Write predictions **before** you compute.
+---
 
-## Stage 1: Counts
+## 1. Predict before you compute
 
-My prediction: share of Third-class travellers who travel as a family ______ %, First class ______ %
-Actual: Third ______ %, First ______ %
+Before you look at any numbers, draw a quick prediction of which variables you think will be directly linked. (You will revise this later.)
 
-## Stage 2: Pairwise associations
+```
+financial_status     ticket_class     purpose     party
+```
 
-| Pair | Associated? (p small?) | Effect size V | Strong / medium / weak |
+Draw arrows or lines between the variables you expect to be associated.
+
+---
+
+## 2. Marginal counts
+
+Pick one variable and write its level counts and proportions.
+
+| level | count | proportion |
+|---|---|---|
+| | | |
+| | | |
+| | | |
+
+Which level is most common? ___________________________________________
+
+---
+
+## 3. Pairwise associations
+
+Use `assoc_test(df, a, b)` to fill the table.
+
+| pair | Cramer's V | p-value | associated? (yes / no / borderline) |
 |---|---|---|---|
-| F - C | | | |
-| F - P | | | |
-| F - T | | | |
-| C - P | | | |
-| C - T | | | |
-| P - T | | | |
+| financial_status — ticket_class | | | |
+| financial_status — purpose | | | |
+| financial_status — party | | | |
+| ticket_class — purpose | | | |
+| ticket_class — party | | | |
+| purpose — party | | | |
 
-**Draw the association graph** (a line for every associated pair):
+Surprises? ____________________________________________________________
 
-```
-        F               C
+---
 
+## 4. Conditioning table
 
+For each pair, test independence while conditioning on a third variable. Write **I** (independent), **D** (dependent), or **~** (noisy / unsure). The pair's own column stays blank.
 
+| pair | given F | given C | given P | given T |
+|---|---|---|---|---|
+| F — C | — | | | |
+| F — P | | — | | |
+| F — T | | | | |
+| C — P | | — | | |
+| C — T | | | | |
+| P — T | | | | — |
 
-        P               T
-```
+Which pairs stay associated no matter what you condition on? __________________
 
-Does a line between C and T mean ticket class *affects* how people travel? ______________________________
+Which pairs become independent once you condition on the right variable? ________
 
-## Stage 3: Conditioning
+---
 
-For each row, write your prediction (Dep / Indep), run the test, then write the result. Mark "~" results (no evidence of dependence).
+## 5. Your graph
 
-| Pair | Given | Prediction | Result (p) |
-|---|---|---|---|
-| C - T | F | | |
-| F - T | P | | |
-| C - P | F | | |
-| C - P | T | | |
-| F - T | C | | |
-| P - T | F | | |
-
-1. Pairs that can **never** be made independent (= direct links): ______________________
-2. Pairs that **can** be made independent, and the variable that does it: ______________________
-3. **Draw your inferred graph** (edges only):
+Draw a graph with one node per variable. Connect two nodes if they stay associated after conditioning.
 
 ```
-
-
-
-
+financial_status     ticket_class     purpose     party
 ```
 
-## Stage 4: Noise and direction
+What can this graph **not** tell you? (direction? hidden variables? causation?)
 
-* Sample size at which I detect the C-T association in 80% of studies: ______
-* Why does the "given P" line hover near 0.05, not 0? ______________________
-* Two non-statistical sources of information about direction: ______________________
+______________________________________________________________________
 
-## Stage 5: Colliders
+---
 
-| | Overall | Among upgraded | Among not upgraded |
-|---|---|---|---|
-| Loyalty and season associated? (prediction) | | | |
-| (result) | | | |
+## 6. Sample size reflection
 
-Why does the dependence appear? ______________________
+Look at your sample-size sweep plot.
 
-## Stage 6-7: Theory and intervention
+With n = 200, would you trust a non-significant p-value as evidence of independence? Why or why not?
 
-* Does the table-based prediction of P(T | C) match my data? ______  If not, what does that tell me? ______
-* Fork: ____ is the common cause of ____ and ____.  Chain: ____ → ____ → ____.
-* Confounder of C and P: ____   Mediator between F and T: ____
-* P(T), P(T | C = First) and P(T | do(C = First)): which two are equal (if any)? ______
-* Why is P(T | C = First) different from P(T | do(C = First))? ______________________
+______________________________________________________________________
 
-## Group report (2 minutes at the board)
+---
 
-1. Our graph: (draw)
-2. The single most convincing piece of evidence for one edge: ______________________
-3. One thing we are **not** sure about: ______________________
+## 7. Collider reflection
+
+In `collider_upgrade.csv`, `loyalty_member` and `peak_season` are marginally independent but associated among upgraded travellers.
+
+Explain in your own words why conditioning on a common outcome can create an association:
+
+______________________________________________________________________
+
+---
+
+## 8. Exit ticket
+
+1. What is the difference between a marginal association and a conditional association?
+
+______________________________________________________________________
+
+2. When is a graph of variables a useful summary of a dataset?
+
+______________________________________________________________________
+
+3. Why do we need to be careful with p-values when the sample is small?
+
+______________________________________________________________________
