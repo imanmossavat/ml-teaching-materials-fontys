@@ -1,0 +1,402 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Sample Proportion Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column of build-up steps; demos sit in framed panels inside it. */
+:root{
+  --bg:#f5f7f8; --surface:#ffffff; --fg:#17232b; --muted:#5a6b75; --line:#d5dee3;
+  --accent:#1f6f8b; --accent-soft:#dcecf2; --hot:#c4513a; --good:#2f7d4f; --warn:#a86a12;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f171c; --surface:#16222a; --fg:#e3ecf0; --muted:#93a6b1; --line:#2a3a44;
+  --accent:#5fb3d0; --accent-soft:#18323d; --hot:#ec8a74; --good:#6cc28d; --warn:#e0a54a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f171c; --surface:#16222a; --fg:#e3ecf0; --muted:#93a6b1; --line:#2a3a44;
+  --accent:#5fb3d0; --accent-soft:#18323d; --hot:#ec8a74; --good:#6cc28d; --warn:#e0a54a; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:16px/1.65 var(--body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:32px 64px}
+main{max-width:46rem;margin:0 auto;display:grid;gap:2.75rem}
+section{min-width:0}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;line-height:1.15;margin:0}
+h1{font-size:clamp(2rem,6vw,2.8rem)}
+h2{font-size:1.45rem;display:flex;gap:.6rem;align-items:baseline;margin-bottom:.4rem}
+h2 .n{font-family:var(--mono);font-size:.85rem;color:var(--accent);font-weight:500}
+h3{font-size:1.1rem;margin-top:1.2rem}
+p{margin:.65rem 0}
+.lede{color:var(--muted);font-size:1.08rem}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(17rem,1fr));gap:.8rem;margin:.9rem 0}
+.eqs{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:.8rem 1rem;display:grid;gap:.45rem;font-family:var(--mono);font-size:.93rem;overflow-x:auto;min-width:0}
+.eqs .h{font:600 .72rem var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.eqs.num{border-style:dashed}
+.eqs b{color:var(--accent);font-weight:500}
+.box{background:var(--accent-soft);border-radius:8px;padding:1rem 1.2rem}
+.label{font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+table{border-collapse:collapse;font-variant-numeric:tabular-nums;font-family:var(--mono);font-size:.92rem}
+td,th{padding:.35rem .9rem;border-bottom:1px solid var(--line);text-align:right}
+th{font-family:var(--body);font-weight:600;color:var(--muted)}
+.scroll{overflow-x:auto}
+.frac{display:inline-flex;flex-direction:column;vertical-align:middle;text-align:center;line-height:1.25}
+.frac>span:first-child{border-bottom:1px solid currentColor;padding:0 .2em}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:1.2rem;display:grid;gap:1rem;min-width:0}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(13rem,1fr));gap:1rem}
+.ctl{display:grid;gap:.2rem}
+.ctl label{display:flex;justify-content:space-between;gap:.5rem;font-weight:500}
+.ctl output{font-family:var(--mono);color:var(--accent)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+button{font:600 .95rem var(--body);border-radius:6px;padding:.55rem 1rem;cursor:pointer}
+.primary{background:var(--accent);color:var(--surface);border:0;justify-self:start}
+.seg{display:flex;flex-wrap:wrap;gap:.4rem}
+.seg button{background:transparent;color:var(--fg);border:1px solid var(--line);font-weight:500}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--surface);border-color:var(--accent)}
+button:focus-visible,input:focus-visible{outline:3px solid var(--hot);outline-offset:2px}
+canvas{width:100%;display:block}
+#plot{height:280px}
+.clt{display:grid;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));gap:1rem}
+.clt canvas{height:190px}
+.cap{font-size:.85rem;color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:1rem;font-size:.85rem;color:var(--muted)}
+.legend i{display:inline-block;width:.9rem;height:.6rem;margin-right:.35rem;vertical-align:middle}
+.calc{display:grid;gap:1.1rem;border-top:1px solid var(--line);padding-top:1rem}
+.calc h3{margin:0;font-size:1rem}
+.calc .row{display:grid;gap:.25rem;font-family:var(--mono);font-size:.95rem;font-variant-numeric:tabular-nums}
+.calc .row span.t{font-family:var(--body);color:var(--muted);font-size:.85rem}
+.chip{display:inline-block;font:600 .8rem var(--body);padding:.1rem .6rem;border-radius:99px;margin-left:.4rem}
+.chip.ok{color:var(--good);border:1px solid var(--good)}
+.chip.no{color:var(--warn);border:1px solid var(--warn)}
+ol.tasks{padding-left:1.3rem;display:grid;gap:.7rem;margin:.4rem 0}
+ol.tasks li::marker{font-family:var(--mono);color:var(--accent)}
+.note{color:var(--muted);font-style:italic}
+ul{padding-left:1.2rem}
+</style>
+
+<main>
+<header>
+  <div class="label">AP Stats · Fontys</div>
+  <h1>Sample Proportion Lab</h1>
+  <p class="lede">With real data we never see the true probability of anything. We only see what happened in our sample, and the proportion we observe is an <b>estimate</b> of the true probability. This page measures how good that estimate is: how close the sample proportion tends to land to the truth, and how that depends on the sample size.</p>
+</header>
+
+<section>
+  <h2><span class="n">0</span>The question</h2>
+  <p>A courier wants to know the probability <i>p</i> that a delivery arrives late. Nobody can tell them the true value. What they can do is check a random sample of <i>n</i> deliveries and count how many were late.</p>
+  <p>The fraction of late deliveries in the sample is the <b>sample proportion p̂</b> (say “p-hat”). It is an estimate of p. A different sample gives a different p̂, so p̂ is itself a random variable. To judge the estimate we need its distribution: its average, its spread and its shape.</p>
+  <p>To have numbers to work with, we pretend we are nature and know the truth: <b>p = 0.30</b>. Then we check that what we derive matches what samples actually do.</p>
+</section>
+
+<section>
+  <h2><span class="n">1</span>One delivery</h2>
+  <p>Look at a single delivery. Let <i>X</i> = 1 if it is late and <i>X</i> = 0 if it is on time. A random variable with only the values 0 and 1 is called a <b>Bernoulli</b> random variable.</p>
+  <div class="scroll"><table>
+    <tr><th>x</th><td>0</td><td>1</td></tr>
+    <tr><th>P(X = x)</th><td>1 − p</td><td>p</td></tr>
+  </table></div>
+  <p>We use the definitions of the mean and variance of a discrete random variable. On the left is the general calculation, on the right the same calculation with p = 0.30.</p>
+  <div class="pair">
+    <div class="eqs"><span class="h">In general</span>
+      <span>E[X] = 0·(1−p) + 1·p = <b>p</b></span>
+      <span>E[X²] = 0²·(1−p) + 1²·p = p</span>
+      <span>Var(X) = E[X²] − (E[X])²</span>
+      <span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= p − p² = <b>p(1−p)</b></span>
+      <span>SD(X) = √(p(1−p))</span>
+    </div>
+    <div class="eqs num"><span class="h">With p = 0.30</span>
+      <span>E[X] = 0·0.70 + 1·0.30 = <b>0.30</b></span>
+      <span>E[X²] = 0·0.70 + 1·0.30 = 0.30</span>
+      <span>Var(X) = 0.30 − 0.30²</span>
+      <span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= 0.30 − 0.09 = <b>0.21</b></span>
+      <span>SD(X) = √0.21 ≈ 0.458</span>
+    </div>
+  </div>
+  <p>Check: p(1−p) = 0.30 × 0.70 = 0.21, the same number.</p>
+</section>
+
+<section>
+  <h2><span class="n">2</span>A sample of n deliveries: the binomial</h2>
+  <p>Now take a sample of n deliveries, X<sub>1</sub>, X<sub>2</sub>, …, X<sub>n</sub>. Each one is a Bernoulli variable with the same p, and we assume they are independent. The total number of late deliveries is the sum</p>
+  <div class="eqs"><span>S = X<sub>1</sub> + X<sub>2</sub> + … + X<sub>n</sub></span></div>
+  <p>This S is a <b>binomial</b> random variable. The binomial distribution models the number of successes in a fixed number of independent “yes/no” or “success/failure” trials (known as Bernoulli trials). Here a “success” is a late delivery, and the fixed number of trials is n.</p>
+  <p>For the mean and variance of S we use the rules for <b>combining random variables</b>: means always add, and for <i>independent</i> variables the <b>variances add</b> (the SDs do not). We use n = 50 deliveries for the numbers.</p>
+  <div class="pair">
+    <div class="eqs"><span class="h">In general</span>
+      <span>E[S] = p + p + … + p = <b>np</b></span>
+      <span>Var(S) = p(1−p) + … + p(1−p)</span>
+      <span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= <b>np(1−p)</b></span>
+      <span>SD(S) = √(np(1−p))</span>
+    </div>
+    <div class="eqs num"><span class="h">With p = 0.30, n = 50</span>
+      <span>E[S] = 50 × 0.30 = <b>15</b> late deliveries</span>
+      <span>Var(S) = 50 × 0.21</span>
+      <span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= <b>10.5</b></span>
+      <span>SD(S) = √10.5 ≈ 3.24</span>
+    </div>
+  </div>
+  <p>So in a sample of 50 we expect about 15 late deliveries, give or take about 3.</p>
+</section>
+
+<section>
+  <h2><span class="n">3</span>From a count to a proportion</h2>
+  <p>S is a <i>count</i>: 15 late deliveries out of 50. But we want to estimate a <i>probability</i>, which is a number between 0 and 1. To turn a count into a proportion we divide by the total number of trials n. That gives the sample proportion:</p>
+  <div class="eqs"><span>p̂ = S / n &nbsp;&nbsp;&nbsp; (for example 15 / 50 = 0.30)</span></div>
+  <p>Dividing a random variable by a constant divides its mean by that constant, and also its SD (this is <b>transforming random variables</b>). The variance is divided by n².</p>
+  <div class="pair">
+    <div class="eqs"><span class="h">In general</span>
+      <span>E[p̂] = E[S] / n = np / n = <b>p</b></span>
+      <span>Var(p̂) = Var(S) / n² = np(1−p) / n²</span>
+      <span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= <b>p(1−p) / n</b></span>
+      <span>SD(p̂) = <b>√( p(1−p) / n )</b></span>
+    </div>
+    <div class="eqs num"><span class="h">With p = 0.30, n = 50</span>
+      <span>E[p̂] = 15 / 50 = <b>0.30</b></span>
+      <span>Var(p̂) = 10.5 / 50² = 10.5 / 2500</span>
+      <span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= <b>0.0042</b></span>
+      <span>SD(p̂) = √0.0042 ≈ <b>0.065</b></span>
+    </div>
+  </div>
+  <p>Check: SD(S)/n = 3.24 / 50 ≈ 0.065, and √(0.30 × 0.70 / 50) = √0.0042 ≈ 0.065. Both routes agree.</p>
+  <p>What this says about our estimate:</p>
+  <ul>
+    <li><b>E[p̂] = p.</b> On average the estimate hits the truth. It does not systematically over- or underestimate, so p̂ is an <i>unbiased</i> estimator.</li>
+    <li><b>The spread shrinks like 1/√n.</b> A typical sample of 50 misses the truth by about 0.065, that is 6.5 percentage points. More data makes the estimate better, but slowly: 4 times more data only halves the error.</li>
+  </ul>
+  <div class="scroll"><table>
+    <tr><th>n</th><td>25</td><td>100</td><td>400</td><td>1600</td></tr>
+    <tr><th>SD(p̂), p = 0.30</th><td>0.092</td><td>0.046</td><td>0.023</td><td>0.011</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <h2><span class="n">4</span>The shape: the central limit theorem</h2>
+  <p>Steps 1–3 give the mean and the SD of p̂ for any sample size. They say nothing about the <i>shape</i> of its distribution. For that we need one of the most surprising results in all of mathematics.</p>
+  <div class="box">
+    <div class="label">Central limit theorem</div>
+    <p>Take independent draws from <b>almost any distribution</b> with mean μ and SD σ. Average n of them. When n is large enough, the distribution of that average is <b>approximately normal</b>, with mean μ and SD σ/√n.</p>
+  </div>
+  <p>The starting distribution can be flat, lopsided, have two humps, or be just two values like our 0/1 deliveries. It does not matter: averaging washes out the original shape and leaves a bell curve. The only things that survive are the mean (it stays μ) and the spread (it becomes σ/√n). The individual draws can look like anything, yet their average always ends up looking the same. That is why the normal distribution shows up everywhere in nature and in data.</p>
+  <p>See it for yourself. Pick a starting distribution, then raise n from 1 and watch the right-hand histogram turn into a bell.</p>
+
+  <div class="panel" aria-labelledby="cltTitle">
+    <h3 id="cltTitle" style="margin:0">Averaging different distributions</h3>
+    <div class="seg" role="group" aria-label="Starting distribution">
+      <button type="button" data-src="unif" aria-pressed="true">Flat (uniform)</button>
+      <button type="button" data-src="expo" aria-pressed="false">Lopsided (exponential)</button>
+      <button type="button" data-src="ushape" aria-pressed="false">Two humps (U-shaped)</button>
+      <button type="button" data-src="coin" aria-pressed="false">Yes/no, p = 0.30</button>
+    </div>
+    <div class="ctl" style="max-width:24rem"><label for="cn">Number of values averaged, n <output id="cnOut"></output></label><input id="cn" type="range" min="1" max="50" step="1" value="1"></div>
+    <div class="clt">
+      <div><canvas id="srcPlot" aria-label="Histogram of single draws from the starting distribution"></canvas><div class="cap">One draw at a time: the starting distribution.</div></div>
+      <div><canvas id="avgPlot" aria-label="Histogram of averages of n draws with a normal curve"></canvas><div class="cap">4,000 averages of n draws, with the normal curve that the CLT predicts.</div></div>
+    </div>
+  </div>
+
+  <h3>What this means for p̂</h3>
+  <p>p̂ = S/n = (X<sub>1</sub> + … + X<sub>n</sub>)/n is exactly an <b>average of n Bernoulli values</b>, the “Yes/no” case above. So the central limit theorem applies: for large enough n, p̂ is approximately normal with mean p and SD √(p(1−p)/n). Those are the numbers from steps 1–3.</p>
+  <p>“Large enough” depends on p. When p is close to 0 or 1, almost all values are the same and the starting distribution is very lopsided, so we need a bigger sample before the bell appears. The usual rule of thumb is the <b>normal condition</b>: expect at least 10 successes and at least 10 failures.</p>
+  <div class="eqs"><span>np ≥ 10 &nbsp;&nbsp; and &nbsp;&nbsp; n(1−p) ≥ 10</span></div>
+</section>
+
+<section class="panel" aria-labelledby="labtitle">
+  <div>
+    <div class="label">Lab</div>
+    <h2 id="labtitle" style="margin-top:.2rem">Many samples of deliveries</h2>
+  </div>
+  <p>Here you play nature. You choose the true late-delivery probability, and the computer plays 2,000 managers who each check their own random sample of n deliveries. Every manager computes their own p̂. The histogram shows all 2,000 estimates, and the black curve is the normal distribution predicted by steps 1–4.</p>
+  <ul>
+    <li><b>True probability p</b>: the real late-delivery probability. In real life nobody knows it. Here you set it.</li>
+    <li><b>Sample size n</b>: how many deliveries each manager checks.</li>
+    <li><b>P(p̂ &gt; c) for c</b>: a threshold. The page shades every estimate above c, and compares the share of shaded samples with what the normal curve predicts.</li>
+    <li><b>Draw 2,000 new samples</b>: repeats the whole experiment with new random samples. Moving p or n also redraws.</li>
+  </ul>
+  <div class="controls">
+    <div class="ctl"><label for="p">True probability p <output id="pOut"></output></label><input id="p" type="range" min="0.05" max="0.95" step="0.01" value="0.30"></div>
+    <div class="ctl"><label for="n">Sample size n <output id="nOut"></output></label><input id="n" type="range" min="5" max="400" step="1" value="5"></div>
+    <div class="ctl"><label for="c">P(p̂ &gt; c) for c = <output id="cOut"></output></label><input id="c" type="range" min="0" max="1" step="0.01" value="0.40"></div>
+  </div>
+  <button id="draw" class="primary" type="button">Draw 2,000 new samples</button>
+  <canvas id="plot" aria-label="Histogram of simulated sample proportions with the normal curve on top"></canvas>
+  <div class="legend"><span><i style="background:var(--accent)"></i>estimates p̂ ≤ c</span><span><i style="background:var(--hot)"></i>estimates p̂ &gt; c</span><span><i style="background:var(--fg);height:2px"></i>normal curve from the formulas</span></div>
+
+  <div class="calc" aria-live="polite">
+    <div><h3>Centre: mean of p̂</h3>
+      <div class="row"><span class="t">Theory</span><span id="cMean1"></span></div>
+      <div class="row"><span class="t">Simulation: average of the 2,000 estimates</span><span id="cMean2"></span></div>
+    </div>
+    <div><h3>Spread: SD of p̂</h3>
+      <div class="row"><span class="t">Theory</span><span id="cSd1"></span></div>
+      <div class="row"><span class="t">Simulation: SD of the 2,000 estimates</span><span id="cSd2"></span></div>
+    </div>
+    <div><h3>Probability P(p̂ &gt; c)</h3>
+      <div class="row"><span class="t">Simulation: share of estimates above c</span><span id="cP1"></span></div>
+      <div class="row"><span class="t">Normal curve: z-score</span><span id="cZ"></span></div>
+      <div class="row"><span class="t">Normal curve: area to the right of z</span><span id="cP2"></span></div>
+    </div>
+    <div><h3>Normal condition <span id="cond" class="chip"></span></h3>
+      <div class="row"><span id="cCond"></span></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="n">5</span>Try this, and write down what you see</h2>
+  <ol class="tasks">
+    <li><b>A tiny sample.</b> Set p = 0.30 and n = 5. Which values can p̂ take? (Hint: k/5.) Does the histogram look like the normal curve? Is the normal condition met?</li>
+    <li><b>Grow the sample.</b> Keep p = 0.30 and move n to 25, then 100, then 400. Write down the simulated SD each time. Describe what happens to the shape and to the width of the histogram.</li>
+    <li><b>The √n law.</b> Compare your SDs for n = 25 and n = 100. The sample is 4 times larger. By what factor did the SD shrink? Does it match √4 = 2? Do the same for n = 100 and n = 400.</li>
+    <li><b>Randomness of the simulation.</b> Keep the settings fixed and press “Draw 2,000 new samples” a few times. Which numbers change and which stay fixed? Why is the theory column never changing?</li>
+    <li><b>The centre.</b> In every setting, compare the average of the 2,000 estimates with p. What does this tell you about whether p̂ is a fair (unbiased) estimate?</li>
+    <li><b>When the normal curve fails.</b> Set p = 0.05 and n = 40. The condition np ≥ 10 fails. Describe the shape. Set c = 0.10 and compare the simulated P(p̂ &gt; c) with the normal-curve value. Then raise n to 300 and compare again.</li>
+    <li><b>Reading a probability.</b> Set p = 0.30, n = 400 and c = 0.34. Write down the z-score. Sketch the normal curve, shade the area to the right of z, and explain why the probability is 1 − P(Z &lt; z). Check that the normal-curve value is close to the simulated share.</li>
+  </ol>
+</section>
+
+<section>
+  <h2><span class="n">6</span>A worked example</h2>
+  <p>The courier’s true late rate is p = 0.30. A manager checks n = 525 deliveries. How likely is it that the sample shows <b>more than 34%</b> late, P(p̂ &gt; 0.34)?</p>
+  <div class="pair">
+    <div class="eqs"><span class="h">Reasoning</span>
+      <span>Condition: np ≥ 10, n(1−p) ≥ 10</span>
+      <span>Centre: E[p̂] = p</span>
+      <span>Spread: SD(p̂) = √(p(1−p)/n)</span>
+      <span>z = (c − p) / SD(p̂)</span>
+      <span>P(p̂ &gt; c) ≈ 1 − P(Z &lt; z)</span>
+    </div>
+    <div class="eqs num"><span class="h">Numbers</span>
+      <span>157.5 ≥ 10 and 367.5 ≥ 10 ✓</span>
+      <span>E[p̂] = 0.30</span>
+      <span>√(0.30 × 0.70 / 525) = √0.0004 = 0.02</span>
+      <span>z = (0.34 − 0.30) / 0.02 = 2.00</span>
+      <span>1 − 0.9772 = <b>0.0228</b></span>
+    </div>
+  </div>
+  <p>Read it back as a statement about the estimate: with 525 deliveries, an estimate that is 4 percentage points too high happens in only about 2% of samples. That is how well this estimate works.</p>
+</section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const css = () => getComputedStyle(document.documentElement);
+const col = k => css().getPropertyValue(k).trim();
+
+function erf(x){ // Abramowitz–Stegun 7.1.26
+  const s = Math.sign(x); x = Math.abs(x);
+  const t = 1/(1+0.3275911*x);
+  return s*(1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x));
+}
+const Phi = z => 0.5*(1+erf(z/Math.SQRT2));
+const f = (x, d=4) => x.toFixed(d);
+
+/* Shared histogram: edges ascending, values, optional normal curve {mu, sd}, cut c for hot bars. */
+function hist(cv, edges, values, {curve, cut, lo, hi} = {}){
+  const dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
+  cv.width = W*dpr; cv.height = H*dpr;
+  const g = cv.getContext("2d"); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H);
+  lo ??= edges[0]; hi ??= edges[edges.length-1];
+  const L = 12, R = 12, T = 8, B = 26, pw = W-L-R, ph = H-T-B;
+  const counts = new Array(edges.length-1).fill(0);
+  for(const v of values){
+    let a = 0, b = edges.length-1;
+    if(v < edges[0] || v >= edges[b]) continue;
+    while(b-a > 1){ const m = (a+b)>>1; if(v >= edges[m]) a = m; else b = m; }
+    counts[a]++;
+  }
+  const dens = counts.map((k,i) => k/(values.length*(edges[i+1]-edges[i])));
+  let ymax = Math.max(...dens);
+  if(curve) ymax = Math.max(ymax, 1/(curve.sd*Math.sqrt(2*Math.PI)));
+  ymax *= 1.08;
+  const X = x => L + (x-lo)/(hi-lo)*pw, Y = y => T + ph - y/ymax*ph;
+  dens.forEach((d,i) => {
+    const a = Math.max(L, X(edges[i])), e = Math.min(L+pw, X(edges[i+1]));
+    if(e <= a) return;
+    const mid = (edges[i]+edges[i+1])/2;
+    g.fillStyle = cut !== undefined && mid > cut ? col("--hot") : col("--accent");
+    g.globalAlpha = .85; g.fillRect(a+.5, Y(d), Math.max(1, e-a-1), T+ph-Y(d));
+  });
+  g.globalAlpha = 1;
+  if(curve){
+    g.strokeStyle = col("--fg"); g.lineWidth = 2; g.beginPath();
+    for(let i=0;i<=240;i++){ const x = lo+(hi-lo)*i/240, y = Math.exp(-.5*((x-curve.mu)/curve.sd)**2)/(curve.sd*Math.sqrt(2*Math.PI)); i ? g.lineTo(X(x),Y(y)) : g.moveTo(X(x),Y(y)); }
+    g.stroke();
+  }
+  if(cut !== undefined && cut > lo && cut < hi){ g.strokeStyle = col("--hot"); g.setLineDash([5,4]); g.beginPath(); g.moveTo(X(cut),T); g.lineTo(X(cut),T+ph); g.stroke(); g.setLineDash([]); }
+  g.strokeStyle = col("--line"); g.lineWidth = 1; g.beginPath(); g.moveTo(L,T+ph); g.lineTo(L+pw,T+ph); g.stroke();
+  g.fillStyle = col("--muted"); g.font = "12px " + col("--mono"); g.textAlign = "center";
+  const step = [0.01,0.02,0.05,0.1,0.2,0.5,1,2].find(s => (hi-lo)/s <= 7) || 2;
+  for(let t = Math.ceil(lo/step-1e-9)*step; t <= hi+1e-9; t += step){ g.fillText(+t.toFixed(2)+"", X(t), H-7); g.fillRect(X(t), T+ph, 1, 4); }
+}
+const regular = (lo, hi, k) => Array.from({length:k+1}, (_,i) => lo+(hi-lo)*i/k);
+/* Bars for values k/n: group m lattice points per bar so bars never alias. */
+function lattice(n, lo, hi, maxBars){
+  const m = Math.max(1, Math.ceil((hi-lo)*n/maxBars));
+  const e = []; for(let b = Math.floor(lo*n/m)-1; (b*m-.5)/n <= hi+m/n; b++) e.push((b*m-.5)/n);
+  return e;
+}
+
+/* ---------- CLT demo ---------- */
+const SRC = {
+  unif:  {draw:()=>Math.random(), mu:.5, sd:Math.sqrt(1/12), lo:0, hi:1},
+  expo:  {draw:()=>-Math.log(1-Math.random()), mu:1, sd:1, lo:0, hi:5},
+  ushape:{draw:()=>Math.sin(Math.PI*Math.random()/2)**2, mu:.5, sd:Math.sqrt(1/8), lo:0, hi:1},
+  coin:  {draw:()=>Math.random()<.3?1:0, mu:.3, sd:Math.sqrt(.21), lo:0, hi:1, discrete:true},
+};
+let src = "unif";
+function renderCLT(){
+  const s = SRC[src], n = +$("cn").value; $("cnOut").textContent = n;
+  const single = Array.from({length:8000}, s.draw);
+  hist($("srcPlot"), s.discrete ? [-.5,.5,1.5] : regular(s.lo, s.hi, 30), single, s.discrete ? {lo:-.5, hi:1.5} : {});
+  const avgs = Array.from({length:4000}, () => { let t = 0; for(let i=0;i<n;i++) t += s.draw(); return t/n; });
+  const sd = s.sd/Math.sqrt(n);
+  const lo = Math.max(s.lo - (s.discrete ? .5/n : 0), s.mu-4.2*sd), hi = Math.min(s.hi + (s.discrete ? .5/n : 0), s.mu+4.2*sd);
+  hist($("avgPlot"), s.discrete ? lattice(n, lo, hi, 40) : regular(lo, hi, 40), avgs, {curve: n > 1 ? {mu:s.mu, sd} : undefined, lo, hi});
+}
+document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => {
+  src = b.dataset.src;
+  document.querySelectorAll(".seg button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  renderCLT();
+}));
+$("cn").addEventListener("input", renderCLT);
+
+/* ---------- Lab ---------- */
+const N = 2000;
+let ks = [];
+const P = () => ({p:+$("p").value, n:+$("n").value, c:+$("c").value});
+function drawLab(){
+  const {p, n} = P();
+  ks = Array.from({length:N}, () => { let k = 0; for(let j=0;j<n;j++) if(Math.random()<p) k++; return k; });
+  renderLab();
+}
+function renderLab(){
+  const {p, n, c} = P();
+  $("pOut").textContent = p.toFixed(2); $("nOut").textContent = n; $("cOut").textContent = c.toFixed(2);
+  const sd = Math.sqrt(p*(1-p)/n), ph = ks.map(k => k/n);
+  const mean = ph.reduce((a,b)=>a+b,0)/N;
+  const sdSim = Math.sqrt(ph.reduce((a,b)=>a+(b-mean)**2,0)/(N-1));
+  const above = ph.filter(v => v > c).length, z = (c-p)/sd;
+  $("cMean1").textContent = `E[p̂] = p = ${p.toFixed(2)}`;
+  $("cMean2").textContent = f(mean);
+  $("cSd1").textContent = `√(p(1−p)/n) = √(${p.toFixed(2)} × ${(1-p).toFixed(2)} / ${n}) = ${f(sd)}`;
+  $("cSd2").textContent = f(sdSim);
+  $("cP1").textContent = `${above} of ${N} = ${f(above/N)}`;
+  $("cZ").textContent = `z = (c − p) / SD = (${c.toFixed(2)} − ${p.toFixed(2)}) / ${f(sd)} = ${z.toFixed(2)}`;
+  $("cP2").textContent = `1 − P(Z < ${z.toFixed(2)}) = ${f(1-Phi(z))}`;
+  const ok = n*p >= 10 && n*(1-p) >= 10, cond = $("cond");
+  cond.className = "chip " + (ok ? "ok" : "no"); cond.textContent = ok ? "met" : "not met";
+  $("cCond").textContent = `np = ${n} × ${p.toFixed(2)} = ${(n*p).toFixed(1)},   n(1−p) = ${n} × ${(1-p).toFixed(2)} = ${(n*(1-p)).toFixed(1)}`;
+  const lo = Math.max(-.5/n, p-4.5*sd), hi = Math.min(1+.5/n, p+4.5*sd);
+  hist($("plot"), lattice(n, lo, hi, 45), ph, {curve:{mu:p, sd}, cut:c, lo, hi});
+}
+["p","n"].forEach(id => $(id).addEventListener("input", drawLab));
+$("c").addEventListener("input", renderLab);
+$("draw").addEventListener("click", drawLab);
+
+const all = () => { renderCLT(); renderLab(); };
+addEventListener("resize", all);
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", all);
+new MutationObserver(all).observe(document.documentElement, {attributes:true, attributeFilter:["data-theme"]});
+renderCLT(); drawLab();
+</script>
+
+</body></html>
