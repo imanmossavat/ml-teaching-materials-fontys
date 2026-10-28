@@ -75,7 +75,7 @@ ul{padding-left:1.2rem}
 
 <main>
 <header>
-  <div class="label">AP Stats · Fontys</div>
+  <div class="label">Foundations of Computer Science · Fontys ICT</div>
   <h1>Sample Proportion Lab</h1>
   <p class="lede">With real data we never see the true probability of anything. We only see what happened in our sample, and the proportion we observe is an <b>estimate</b> of the true probability. This page measures how good that estimate is: how close the sample proportion tends to land to the truth, and how that depends on the sample size.</p>
 </header>
@@ -246,10 +246,10 @@ ul{padding-left:1.2rem}
     <li><b>A tiny sample.</b> Set p = 0.30 and n = 5. Which values can p̂ take? (Hint: k/5.) Does the histogram look like the normal curve? Is the normal condition met?</li>
     <li><b>Grow the sample.</b> Keep p = 0.30 and move n to 25, then 100, then 400. Write down the simulated SD each time. Describe what happens to the shape and to the width of the histogram.</li>
     <li><b>The √n law.</b> Compare your SDs for n = 25 and n = 100. The sample is 4 times larger. By what factor did the SD shrink? Does it match √4 = 2? Do the same for n = 100 and n = 400.</li>
-    <li><b>Randomness of the simulation.</b> Keep the settings fixed and press “Draw 2,000 new samples” a few times. Which numbers change and which stay fixed? Why is the theory column never changing?</li>
+    <li><b>Randomness of the simulation.</b> Keep the settings fixed and press “Draw 2,000 new samples” a few times. Which numbers change and which stay fixed? Why do the theory values never change?</li>
     <li><b>The centre.</b> In every setting, compare the average of the 2,000 estimates with p. What does this tell you about whether p̂ is a fair (unbiased) estimate?</li>
     <li><b>When the normal curve fails.</b> Set p = 0.05 and n = 40. The condition np ≥ 10 fails. Describe the shape. Set c = 0.10 and compare the simulated P(p̂ &gt; c) with the normal-curve value. Then raise n to 300 and compare again.</li>
-    <li><b>Reading a probability.</b> Set p = 0.30, n = 400 and c = 0.34. Write down the z-score. Sketch the normal curve, shade the area to the right of z, and explain why the probability is 1 − P(Z &lt; z). Check that the normal-curve value is close to the simulated share.</li>
+    <li><b>Reading a probability.</b> Set p = 0.30, n = 400 and c = 0.34. Write down the z-score. Sketch the normal curve, shade the area to the right of z, and explain why the probability is 1 − P(Z &lt; z). Check that the normal-curve value is close to the simulated share. (The normal value will come out a little higher. p̂ can only take the values k/400, and p̂ = 0.34 itself, which is 136/400, does not count as “greater than 0.34”. The smooth normal curve does not know about these gaps.)</li>
   </ol>
 </section>
 
@@ -272,7 +272,7 @@ ul{padding-left:1.2rem}
       <span>1 − 0.9772 = <b>0.0228</b></span>
     </div>
   </div>
-  <p>Read it back as a statement about the estimate: with 525 deliveries, an estimate that is 4 percentage points too high happens in only about 2% of samples. That is how well this estimate works.</p>
+  <p>Read it back as a statement about the estimate: with 525 deliveries, an estimate that is more than 4 percentage points too high happens in only about 2% of samples. That is how well this estimate works.</p>
 </section>
 </main>
 
