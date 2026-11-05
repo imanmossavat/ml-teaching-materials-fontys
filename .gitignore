@@ -9,5 +9,9 @@ data/mnist_64/mnist64_train.pt
 *.png
 ./notebooks/data/*
 ./lerobot/*
-/stats/04_dependence_structures_counts_to_graphs/*
+/AP/Stats/04_dependence_structures_counts_to_graphs/*
 /slides and readers/stats/*
+
+/AP/DETH/*
+!/AP/DETH/.gitkeep
+!/AP/DETH/Decision Theory Course Guide.pdf
