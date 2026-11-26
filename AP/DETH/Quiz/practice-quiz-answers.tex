@@ -1,0 +1,36 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[a4paper,margin=2.2cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{array,booktabs}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\pagestyle{fancy}
+\fancyhf{}
+\cfoot{Page \thepage\ of \pageref{LastPage}}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5pt}
+\newcounter{qnum}
+\newenvironment{examq}[2]{\stepcounter{qnum}\par\noindent\begin{minipage}{\linewidth}\setlength{\parskip}{5pt}%
+{\large\bfseries Question \theqnum: #1}\hfill{\bfseries(#2 marks)}\par\smallskip}{\end{minipage}\par\bigskip}
+\newcommand{\qpart}[2]{\par\textbf{(#1)} \textit{[#2]}\ }
+\lhead{Decision Theory (DETH) --- Practice quiz}
+\rhead{Answers}
+\begin{document}
+\begin{center}{\Large\bfseries Practice quiz --- Answers}\\[3pt] 26 November 2026\end{center}
+These are the final answers only. In the quiz, marks are given for the reasoning: the formula, the numbers you put in,
+and the result. Compare your working with the lecture material if your answer differs.
+
+\begin{center}
+\begin{tabular}{lll}\toprule Part & Answer & Marks\\ \midrule
+1a & $0.9$ & 1\\ 1b & not Markov; state = (level, the weather), 4 states & 3\\ 1c & continuing; $70$ & 2\\
+2a & $23.12$ & 2\\ 2b & $15.52$ & 2\\
+3a & two equations & 3\\ 3b & $32$ and $17$ & 2\\ 3c & $28.8$ and $22.6$ & 2\\
+4a & Normal price in Stocked, Restock in Low & 2\\ 4b & not yet; evaluate $\pi_1$, improve, stop when unchanged & 2\\
+5a & $14$ and $1$ (Happy hour, Keep selling) & 2\\ 5b & $18.08$ and $8.2$ (Normal price, Restock) & 3\\ 5c & future value now counts & 1\\
+\bottomrule\end{tabular}
+\end{center}
+\end{document}

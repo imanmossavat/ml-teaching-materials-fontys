@@ -1,0 +1,198 @@
+% Lecture note — Decision Theory (DETH), Fontys ICT. Lecturer: Iman Mossavat.
+% How to solve a system of linear equations: substitution, elimination, matrices (with numpy).
+% Compile with pdfLaTeX (Overleaf default).
+\documentclass[11pt,a4paper]{article}
+\usepackage[a4paper,margin=2.3cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{Decision Theory (DETH)}
+\rhead{Solving systems of linear equations}
+\cfoot{Page \thepage\ of \pageref{LastPage}}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+
+\lstset{language=Python, basicstyle=\ttfamily\small, columns=fullflexible, keepspaces=true,
+        frame=single, rulecolor=\color{black!30}, backgroundcolor=\color{black!3},
+        commentstyle=\color{black!55}, keywordstyle=\bfseries, showstringspaces=false, xleftmargin=4pt, xrightmargin=4pt}
+\newcommand{\boxit}[1]{\par\noindent\fbox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{#1}}\par}
+
+\begin{document}
+
+\begin{center}
+  {\LARGE\bfseries Solving systems of linear equations}\\[4pt]
+  {\large Substitution, elimination and matrices}\\[4pt]
+  Iman Mossavat $\cdot$ Fontys ICT
+\end{center}
+
+\boxit{A \textbf{system of linear equations} is a set of equations in which the unknowns are only multiplied by numbers
+and added. With $n$ equations and $n$ unknowns there is usually exactly one solution.
+
+\emph{In this course} you meet them when you evaluate a fixed policy: one linear equation per state, with unknowns
+$x = V(s_1)$, $y = V(s_2)$, \dots\ This note is only about solving them.}
+
+% =====================================================================
+\section{Standard form}
+
+Put every equation in the form \emph{unknowns on the left, a number on the right}. If an unknown appears on both sides,
+move it to the left first. Example:
+\begin{align*}
+0.44\,x - 0.24\,y &= 10 \qquad (1)\\
+-0.16\,x + 0.36\,y &= 1 \qquad\ \ (2)
+\end{align*}
+\textbf{Tip: remove the decimals.} Multiply each equation by any number you like; the solution does not change.
+Multiply both by $100$ and divide by $4$:
+\begin{align*}
+11\,x - 6\,y &= 250 \qquad (1')\\
+-4\,x + 9\,y &= 25 \qquad\ \ (2')
+\end{align*}
+
+% =====================================================================
+\section{Method 1: substitution}
+
+Make one unknown the subject of one equation, and put it into the other equation.
+
+From $(2')$: $\;4x = 9y - 25$, so $x = \dfrac{9y - 25}{4}$. Put this into $(1')$:
+\[
+11 \cdot \frac{9y - 25}{4} - 6y = 250
+\;\;\xrightarrow{\ \times 4\ }\;\; 99y - 275 - 24y = 1000
+\;\;\Rightarrow\;\; 75y = 1275
+\;\;\Rightarrow\;\; y = 17.
+\]
+Then $x = (9 \cdot 17 - 25)/4 = 32$.
+
+Substitution is easiest when one equation already gives an unknown directly, such as $y = -3 + 0.8\,x$.
+
+% =====================================================================
+\section{Method 2: elimination}
+
+Multiply the equations so that one unknown gets opposite coefficients, then add them.
+The $y$-coefficients in $(1')$ and $(2')$ are $-6$ and $9$. Multiply $(1')$ by $3$ and $(2')$ by $2$:
+\begin{align*}
+33\,x - 18\,y &= 750\\
+-8\,x + 18\,y &= 50
+\end{align*}
+Adding gives $25\,x = 800$, so $x = 32$. Put it back into $(2')$: $9y = 25 + 4 \cdot 32 = 153$, so $y = 17$.
+
+\boxit{\textbf{Always check} in the original equations:
+$0.44 \cdot 32 - 0.24 \cdot 17 = 14.08 - 4.08 = 10$ \checkmark \quad and \quad
+$-0.16 \cdot 32 + 0.36 \cdot 17 = -5.12 + 6.12 = 1$ \checkmark}
+
+% =====================================================================
+\section{Method 3: matrices}
+
+\textbf{Why matrices?} For two unknowns, substitution is quick. But it does not scale: with three unknowns you already
+juggle many steps, and with a hundred it is hopeless by hand. Matrices are the right level to work at, for four reasons.
+\begin{itemize}[itemsep=1pt, topsep=2pt]
+  \item \textbf{One form for every size.} Two unknowns or a thousand: the problem is always $A\mathbf x = \mathbf b$.
+  \item \textbf{The problem is separated from the method.} $A$ holds the coefficients, $\mathbf b$ the right-hand side.
+        If only $\mathbf b$ changes, $A$ and everything you know about it stay the same.
+  \item \textbf{Questions about the whole system become questions about $A$.} Is there exactly one solution? How sensitive
+        is the solution to small changes? You answer both by looking at $A$ alone, as shown below.
+  \item \textbf{It is how computers work.} \texttt{numpy} and every machine-learning library speak in matrices, and
+        their solvers do elimination (Method 2) in an organised way, row by row.
+\end{itemize}
+
+\textbf{The matrix form.} Put the coefficients in a matrix $A$, the unknowns in a vector $\mathbf x$ and the right-hand
+sides in a vector $\mathbf b$. Row $i$ of $A\mathbf x = \mathbf b$ is equation $i$:
+\[
+\underbrace{\begin{pmatrix} 0.44 & -0.24\\ -0.16 & 0.36 \end{pmatrix}}_{A}
+\underbrace{\begin{pmatrix} x\\ y \end{pmatrix}}_{\mathbf x}
+=
+\underbrace{\begin{pmatrix} 10\\ 1 \end{pmatrix}}_{\mathbf b}.
+\]
+If $A$ has an inverse $A^{-1}$, multiply both sides by it: $\mathbf x = A^{-1}\mathbf b$.
+
+\subsection*{The determinant, step by step}
+
+\textbf{Step 1: the formula for $2 \times 2$.} For $A = \begin{pmatrix} a & b\\ c & d \end{pmatrix}$ the determinant is
+$\det A = ad - bc$. Here $\det A = 0.44 \cdot 0.36 - (-0.24)(-0.16) = 0.1584 - 0.0384 = 0.12$.
+
+\textbf{Step 2: what it tells you.} $\det A = 0$ exactly when one row is a multiple of the other. Then the two
+equations describe parallel lines (or the same line): there is no solution, or there are infinitely many.
+If $\det A \neq 0$ the lines cross in one point: exactly one solution.
+Example: $x + 2y = 3$ and $2x + 4y = 5$ give $\det = 1 \cdot 4 - 2 \cdot 2 = 0$, and indeed the second line is parallel to
+the first, so there is no solution.
+
+\textbf{Step 3: any size.} Every square matrix has a determinant, and the same rule holds:
+\[
+\det A \neq 0 \;\Longleftrightarrow\; A \text{ has an inverse} \;\Longleftrightarrow\; A\mathbf x = \mathbf b \text{ has exactly one solution.}
+\]
+For $3 \times 3$ and larger you do not compute it by hand; \texttt{np.linalg.det(A)} does it.
+
+\textbf{Step 4: a warning.} The \emph{size} of the determinant is not a good measure of trouble. Multiply both equations
+by $25$, as in Section 1: the solution stays the same, but $\det A$ grows from $0.12$ to $11 \cdot 9 - (-6)(-4) = 75$.
+Only ``zero or not zero'' is meaningful. How sensitive a system really is, is measured by the \emph{condition number}
+(Exercise 4).
+
+\subsection*{The inverse of a $2 \times 2$ matrix}
+
+Swap $a$ and $d$, change the sign of $b$ and $c$, and divide by the determinant:
+\[
+A^{-1} = \frac{1}{ad - bc} \begin{pmatrix} d & -b\\ -c & a \end{pmatrix}.
+\]
+This only works if $\det A \neq 0$ (Step 2). In the example:
+\[
+\mathbf x = \frac{1}{0.12} \begin{pmatrix} 0.36 & 0.24\\ 0.16 & 0.44 \end{pmatrix} \begin{pmatrix} 10\\ 1 \end{pmatrix}
+= \frac{1}{0.12} \begin{pmatrix} 3.84\\ 2.04 \end{pmatrix}
+= \begin{pmatrix} 32\\ 17 \end{pmatrix}.
+\]
+
+\subsection*{In code}
+
+\begin{lstlisting}
+import numpy as np
+
+A = np.array([[0.44, -0.24],
+              [-0.16, 0.36]])
+b = np.array([10.0, 1.0])
+
+x = np.linalg.solve(A, b)
+print(x)                    # [32. 17.]
+print(np.linalg.det(A))     # 0.12 (up to rounding)
+\end{lstlisting}
+The same lines work for any number of unknowns. Use \texttt{np.linalg.solve(A, b)} rather than
+\texttt{np.linalg.inv(A) @ b}: same answer, faster and more accurate.
+
+% =====================================================================
+\section{Exercises}
+
+\textbf{1.} Solve $\;3x + 2y = 16,\;\; x - y = 2\;$ by substitution, and again by elimination.
+
+\textbf{2.} Solve $\;2x + 3y = 13,\;\; 4x - y = 5\;$ with the inverse matrix. Check with \texttt{numpy}.
+
+\textbf{3.} Solve with \texttt{numpy}: $\;x + y + z = 6,\;\; 2x - y + z = 3,\;\; x + 2y - z = 2$.
+Compute $\det A$ too.
+
+\textbf{4. Almost parallel lines.}
+\begin{enumerate}[label=(\alph*), itemsep=1pt, topsep=2pt]
+  \item Solve $\;x + y = 2,\;\; x + 1.001\,y = 2$.
+  \item Change only the right-hand side of the second equation from $2$ to $2.001$ and solve again.
+  \item How much did $\mathbf b$ change? How much did the solution change?
+  \item Find out why. Compute $\det A$. Sketch the two lines.
+  \item Compute \texttt{np.linalg.cond(A)}. Look up what the \emph{condition number} tells you.
+\end{enumerate}
+
+\textbf{Answers.}
+(1) $x = 4$, $y = 2$.
+(2) $\det A = 2 \cdot (-1) - 3 \cdot 4 = -14$, $\;A^{-1} = \dfrac{1}{-14}\begin{pmatrix} -1 & -3\\ -4 & 2 \end{pmatrix}$,
+$\;\mathbf x = \dfrac{1}{-14}\begin{pmatrix} -13 - 15\\ -52 + 10 \end{pmatrix} = \begin{pmatrix} 2\\ 3 \end{pmatrix}$.
+(3) $x = 1$, $y = 2$, $z = 3$; $\det A = 7$.
+
+(4) (a) $x = 2,\ y = 0$. (b) $x = 1,\ y = 1$. (c) $\mathbf b$ changed by $0.001$, the solution by $1$ in each unknown:
+a thousand times more. (d) $\det A = 0.001$: the rows $(1, 1)$ and $(1, 1.001)$ are almost multiples of each other, so the
+lines are almost parallel. They cross at a very flat angle, and a tiny shift of one line moves the crossing point far
+away. (A calculator that rounds $1.001$ to $1$ makes them exactly parallel.) (e) The condition number is about $4000$:
+a relative change in $\mathbf b$ can grow up to about $4000$ times in the solution. Such a system is called
+\emph{ill-conditioned}. Unlike the determinant, the condition number does not change when you multiply the whole system
+by a number.
+
+\end{document}
