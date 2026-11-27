@@ -23,7 +23,6 @@ the assessment. For the **midterm** you may use a calculator; no notes are allow
 |---|---|---|
 | Solving systems of linear equations: substitution, elimination, matrices, determinant, inverse, condition number | [PDF](notes/solving-linear-systems.pdf) | [notebook](notebooks/solving-linear-systems.ipynb) |
 | Geometry of linear systems | [PDF](notes/geometry-of-linear-systems.pdf) | [notebook](notebooks/geometry-of-linear-systems.ipynb) |
-| Monte Carlo reinforcement learning on FrozenLake | | [notebook](notebooks/frozenlake-alpha-mc.ipynb) |
 
 ## Practice quiz
 
@@ -36,5 +35,5 @@ final number alone.
 
 ## Software
 
-For the notebooks: Python 3.10+ with `numpy`, `matplotlib` and `jupyter`; the FrozenLake notebook also needs
-`gymnasium` and `scipy`. Open a notebook in JupyterLab or VS Code and run the cells in order.
+For the notebooks: Python 3.10+ with `numpy`, `matplotlib` and `jupyter`.
+Open a notebook in JupyterLab or VS Code and run the cells in order.
