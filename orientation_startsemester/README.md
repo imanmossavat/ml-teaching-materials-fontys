@@ -11,4 +11,4 @@ After completing this orientation phase, the course will transition into the **M
 ## Directory Structure
 
 * `/Inspiration` - Core presentation materials and the first interactive poster assignment.
-* `/Workshops` - Weekly Jupyter notebooks covering applications, decision trees, and neural networks.
+* `/Workshops` - Jupyter notebooks in two tracks: Applied AI and ML Modeling. See the [Workshops overview](Workshops/README.md).

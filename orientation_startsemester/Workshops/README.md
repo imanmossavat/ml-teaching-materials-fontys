@@ -1,20 +1,60 @@
 # Orientation – Technical Workshops
 
-This directory contains the practical, hands-on lab sessions for the orientation phase. The workshops transition from showing what AI can do at a high level to diving deep into how machine learning models process data and learn.
+Hands-on notebooks for the orientation phase, usable in class or for self-study. They are grouped in two tracks, not tied to week numbers.
 
-## Weekly Overview
+## How to read the names
 
-### Week 1: AI Capabilities in Action
-The first week focuses on the practical capabilities of pre-built AI systems. You do not need to understand the underlying math yet; the focus is on seeing how these frameworks operate.
-* **WK1_ATARI_Agent.ipynb**: An introduction to Reinforcement Learning showcasing an agent learning to play an ATARI game.
-* **WK1_YOLO_1.ipynb**: A computer vision workshop leveraging the YOLO (You Only Look Once) architecture for real-time object detection.
+`A1_vision_yolo` = **track letter** + **step** + **topic**.
 
-### Week 2: Foundations of Machine Learning
-* **WK2_Iris_dataset_decision_tree_demo.ipynb**: A deep dive into classic machine learning. You will use the famous Iris dataset to train, visualize, and understand how a Decision Tree model splits data to make choices.
+* **A** = Applied AI: use existing models and test what they can and cannot do.
+* **M** = ML Modeling: understand how models learn.
+* The number is the suggested order within a track.
+* `_optional` marks material that can be skipped.
 
-### Week 3: Deep Learning & Neural Networks
-* **WK3_nn_playground_pytorch.ipynb**: An introduction to the inner workings of deep learning. You will build and experiment with a basic neural network using PyTorch to see how layers adjust and map patterns.
+## Overview
 
+### Track A: Applied AI ([1_applied_ai](1_applied_ai/))
 
-### Week 6: Classical Machine Learning
-* **WK6_Classical_ML_Ideas.ipynb**: Different ways to draw a decision boundary: logistic regression, Support Vector Machines (margins, features and kernels), k-nearest neighbours and AdaBoost. Builds on the neural network and decision tree sessions.
+| Notebook | Topic | What you do | Builds on | Level |
+|---|---|---|---|---|
+| [A1_vision_yolo](1_applied_ai/A1_vision_yolo.ipynb) | Computer vision | Detect objects with a pretrained YOLO model and try to break it. High-level introduction. | – | Core |
+| [A2_language_hugging_face](1_applied_ai/A2_language_hugging_face.ipynb) | Natural language processing | Use Hugging Face pipelines, build a small tool and test it. | – | Core |
+| [A3_agents_atari_rl_optional](1_applied_ai/A3_agents_atari_rl_optional.ipynb) | Reinforcement learning agents | Watch a pretrained agent play Atari Breakout. For those who like games, AI and a challenge. | – | Optional |
+
+### Track M: ML Modeling ([2_ml_modeling](2_ml_modeling/))
+
+| Notebook | Topic | What you do | Builds on | Level |
+|---|---|---|---|---|
+| [M1_ml_foundations_decision_trees](2_ml_modeling/M1_ml_foundations_decision_trees.ipynb) | ML foundations | Train and test a decision tree; study model complexity, overfitting and underfitting. Covers most of what you need to understand ML. | – | Core, start here |
+| [M2_classical_ml_models](2_ml_modeling/M2_classical_ml_models.ipynb) | Other models | Compare logistic regression, SVMs, k-nearest neighbours and AdaBoost. | M1 | Core |
+| [M3_neural_networks_playground_pytorch](2_ml_modeling/M3_neural_networks_playground_pytorch.ipynb) | Neural networks | Explore the interactive playground, then build the same thing in PyTorch. | M1 | Core, can be two sessions |
+| [M4_inside_a_neuron_optional](2_ml_modeling/M4_inside_a_neuron_optional.ipynb) | The math inside a neuron | Vectors, linear maps, activations and decision boundaries. | M3 | Optional |
+
+M3 can be split into two sessions:
+
+1. **Interactive:** experiment with [TensorFlow Playground](https://playground.tensorflow.org/) (the link with the starting settings is at the top of the notebook).
+2. **Code:** work through the PyTorch notebook.
+
+## Teacher's note
+
+Start with **Track A (Applied AI)**, then move on to **Track M (ML Modeling)**: students first see what AI can do, then learn how it works.
+
+## Roadmap
+
+**Under development**
+
+* Gesture recognition
+* Voice recognition
+* MCP (Model Context Protocol)
+
+**New track: Agentic AI**
+
+* How to use agentic frameworks
+* Memory management
+* Token economy
+* Documentation
+* Best practices and advanced prompting methods
+
+## Getting started
+
+See [GettingStartedWithColab.md](GettingStartedWithColab.md) to run the notebooks in Google Colab.
