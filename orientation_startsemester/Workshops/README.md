@@ -15,3 +15,6 @@ The first week focuses on the practical capabilities of pre-built AI systems. Yo
 ### Week 3: Deep Learning & Neural Networks
 * **WK3_nn_playground_pytorch.ipynb**: An introduction to the inner workings of deep learning. You will build and experiment with a basic neural network using PyTorch to see how layers adjust and map patterns.
 
+
+### Week 6: Classical Machine Learning
+* **WK6_Classical_ML_Ideas.ipynb**: Different ways to draw a decision boundary: logistic regression, Support Vector Machines (margins, features and kernels), k-nearest neighbours and AdaBoost. Builds on the neural network and decision tree sessions.
