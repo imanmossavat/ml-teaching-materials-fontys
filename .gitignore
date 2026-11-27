@@ -14,4 +14,4 @@ data/mnist_64/mnist64_train.pt
 
 /AP/DETH/*
 !/AP/DETH/.gitkeep
-!/AP/DETH/Decision Theory Course Guide.pdf
+!/AP/DETH/decision-theory-curriculum-and-assessment.pdf
